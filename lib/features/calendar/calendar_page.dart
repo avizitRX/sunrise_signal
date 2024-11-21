@@ -1,16 +1,11 @@
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:sunrise_signal/features/analytics/analytics_page.dart';
+import 'package:sunrise_signal/features/settings/settings_page.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
-import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import '../../models/log_model.dart';
 import '../../models/sleep_model.dart';
-import '../services/secure_storage_service.dart';
+import '../../services/secure_storage_service.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -28,14 +23,6 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
-    _loadLogs();
-  }
-
-  Future<void> _loadLogs() async {
-    final logs = await _storageService.loadLogs();
-    setState(() {
-      _logs = logs;
-    });
   }
 
   Future<void> _saveLog(
@@ -271,82 +258,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Future<void> _exportLogs() async {
-    AndroidDeviceInfo build = await DeviceInfoPlugin().androidInfo;
-    PermissionStatus permissionStatus;
-
-    // Request storage permission
-    if (build.version.sdkInt >= 30) {
-      permissionStatus = await Permission.manageExternalStorage.request();
-    } else {
-      permissionStatus = await Permission.storage.request();
-    }
-
-    if (permissionStatus.isGranted) {
-      try {
-        // Access the Downloads folder
-        final directory = Directory(
-            '/storage/emulated/0/Download'); // Path to Downloads folder
-
-        // Ensure the directory exists
-        if (!directory.existsSync()) {
-          directory.createSync(recursive: true);
-        }
-
-        // Create the file path
-        final filePath = '${directory.path}/sunrise_signal_data_export.json';
-
-        // Write the logs to the file
-        final file = File(filePath);
-        final logsJson = jsonEncode(
-          _logs.map(
-              (key, value) => MapEntry(key.toIso8601String(), value.toMap())),
-        );
-        await file.writeAsString(logsJson);
-
-        // Notify the user of success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Logs exported successfully! File saved in Downloads folder.')),
-        );
-      } catch (e) {
-        // Notify the user of any errors
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export logs: $e')),
-        );
-      }
-    } else {
-      // Notify the user if permission is denied
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Storage permission is required to export logs.'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _importLogs() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final content = await file.readAsString();
-      final Map<String, dynamic> decodedLogs = jsonDecode(content);
-      final importedLogs = decodedLogs.map((key, value) => MapEntry(
-            DateTime.parse(key),
-            LogModel.fromMap(value),
-          ));
-      setState(() {
-        _logs = importedLogs;
-      });
-      await _storageService.saveLogs(_logs);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logs imported successfully!')),
-      );
-    }
-  }
-
   void _showFutureDateError() {
     showDialog(
       context: context,
@@ -374,19 +285,20 @@ class _CalendarPageState extends State<CalendarPage> {
         title: const Text('Sunrise Signal'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.upload_file),
-            onPressed: _exportLogs,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _importLogs,
-          ),
-          IconButton(
             icon: const Icon(Icons.analytics),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AnalyticsPage()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
               );
             },
           ),
@@ -409,10 +321,15 @@ class _CalendarPageState extends State<CalendarPage> {
             titleCentered: true,
           ),
           onDaySelected: (selectedDay, _) {
-            if (selectedDay.isAfter(DateTime.now())) {
+            // Normalize the selectedDay and DateTime.now() to ignore time
+            final normalizedSelectedDay =
+                DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+            final normalizedToday = DateTime(
+                DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
+            if (normalizedSelectedDay.isAfter(normalizedToday)) {
               _showFutureDateError();
             } else {
-              // _logEntryDialog(selectedDay);
               _logEntryBottomSheet(selectedDay);
             }
           },
@@ -434,10 +351,12 @@ class _CalendarPageState extends State<CalendarPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: events
-                          .map((event) => Text(
-                                event.toString(),
-                                style: const TextStyle(fontSize: 18),
-                              ))
+                          .map(
+                            (event) => Text(
+                              event.toString(),
+                              style: const TextStyle(fontSize: 18),
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
