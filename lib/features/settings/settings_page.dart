@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../models/log_model.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../services/auth_service.dart';
+import '../../services/reminder_service.dart';
 import '../../services/secure_storage_service.dart';
+import '../../models/log_model.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -18,6 +20,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isPasscodeSet = false;
   bool _isBiometricEnabled = false;
+  bool _isReminderEnabled = false;
+
   final AuthService _authService = AuthService();
   final SecureStorageService _storageService = SecureStorageService();
   Map<DateTime, LogModel> _logs = {};
@@ -25,16 +29,18 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadLockStatus();
+    _loadSettings();
     _loadLogs();
   }
 
-  Future<void> _loadLockStatus() async {
+  Future<void> _loadSettings() async {
     final passcodeSet = await _authService.isPasscodeSet();
     final biometricEnabled = await _authService.isBiometricEnabled();
+    final reminderEnabled = await ReminderService.isReminderEnabled();
     setState(() {
       _isPasscodeSet = passcodeSet;
       _isBiometricEnabled = biometricEnabled;
+      _isReminderEnabled = reminderEnabled;
     });
   }
 
@@ -43,6 +49,54 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _logs = logs;
     });
+  }
+
+  Future<void> _togglePasscode(bool value) async {
+    if (value) {
+      await showSetPasscodeDialog(context);
+    } else {
+      await _authService.removePasscode();
+      setState(() {
+        _isPasscodeSet = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passcode removed successfully!')),
+      );
+    }
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
+    if (value) {
+      await _enableBiometricLock();
+    } else {
+      await _authService.disableBiometricLock();
+      setState(() {
+        _isBiometricEnabled = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Biometric lock disabled.')),
+      );
+    }
+  }
+
+  Future<void> _toggleReminder(bool value) async {
+    if (value) {
+      await ReminderService.scheduleDailyReminder();
+      setState(() {
+        _isReminderEnabled = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daily reminder enabled!')),
+      );
+    } else {
+      await ReminderService.cancelReminders();
+      setState(() {
+        _isReminderEnabled = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daily reminder disabled.')),
+      );
+    }
   }
 
   Future<void> showSetPasscodeDialog(BuildContext context) async {
@@ -100,15 +154,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   return;
                 }
 
-                // Save the passcode securely
                 await _authService.setPasscode(passcode);
-
-                // Update state
                 setState(() {
                   _isPasscodeSet = true;
                 });
 
-                // Close the dialog
                 Navigator.pop(context);
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -148,18 +198,6 @@ class _SettingsPageState extends State<SettingsPage> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Biometric lock enabled successfully!')),
-    );
-  }
-
-  Future<void> _removeLock() async {
-    await _authService.removePasscode();
-    await _authService.disableBiometricLock();
-    setState(() {
-      _isPasscodeSet = false;
-      _isBiometricEnabled = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('App lock removed successfully!')),
     );
   }
 
@@ -233,10 +271,27 @@ class _SettingsPageState extends State<SettingsPage> {
       });
       await _storageService.saveLogs(_logs);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logs imported successfully!')),
-      );
+      showImportSuccessDialog(context);
     }
+  }
+
+  void showImportSuccessDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: const Text('Your data has been imported successfully!'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                SystemNavigator.pop();
+              },
+              child: const Text('Restart App'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -245,68 +300,53 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Text(
-                'App Lock',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: !_isPasscodeSet
-                    ? () => showSetPasscodeDialog(context)
-                    : null,
-                child: const Text('Set Passcode'),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: !_isBiometricEnabled
-                    ? () async {
-                        await _enableBiometricLock();
-                      }
-                    : null,
-                child: const Text('Enable Biometric Lock'),
-              ),
-              const SizedBox(height: 16),
-              if (_isPasscodeSet || _isBiometricEnabled)
-                ElevatedButton(
-                  onPressed: _removeLock,
-                  child: const Text('Remove App Lock'),
-                ),
-              const SizedBox(height: 22),
-              const Text(
-                'Backup & Restore',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(
-                height: 16,
-              ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.download),
-                label: const Text('Export Data'),
-                onPressed: _exportLogs,
-              ),
-              const SizedBox(
-                height: 16,
-              ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.upload),
-                label: const Text('Import Data'),
-                onPressed: _importLogs,
-              ),
-            ],
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          ListTile(
+            title: const Text('Enable Daily Reminder'),
+            trailing: Switch(
+              value: _isReminderEnabled,
+              onChanged: _toggleReminder,
+            ),
           ),
-        ),
+          const Divider(),
+          ListTile(
+            title: const Text('Enable Passcode Lock'),
+            trailing: Switch(
+              value: _isPasscodeSet,
+              onChanged: _togglePasscode,
+            ),
+          ),
+          ListTile(
+            title: const Text('Enable Biometric Lock'),
+            trailing: Switch(
+              value: _isBiometricEnabled,
+              onChanged: _toggleBiometric,
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            title: GestureDetector(
+              onTap: _exportLogs, // Handle title tap
+              child: const Text('Export Data', style: TextStyle(fontSize: 16)),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _exportLogs,
+            ),
+          ),
+          ListTile(
+            title: GestureDetector(
+              onTap: _importLogs, // Handle title tap
+              child: const Text('Import Data', style: TextStyle(fontSize: 16)),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.upload),
+              onPressed: _importLogs,
+            ),
+          ),
+        ],
       ),
     );
   }
