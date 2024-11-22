@@ -247,8 +247,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     return Expanded(
       child: Card(
         color: color.withOpacity(0.5),
+        margin: const EdgeInsets.all(2),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(5, 15, 5, 15),
+          padding: const EdgeInsets.fromLTRB(0, 15, 0, 15),
           child: Column(
             children: [
               Text(

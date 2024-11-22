@@ -23,6 +23,14 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
+    _loadLogs();
+  }
+
+  Future<void> _loadLogs() async {
+    final logs = await _storageService.loadLogs();
+    setState(() {
+      _logs = logs;
+    });
   }
 
   Future<void> _saveLog(
@@ -304,67 +312,65 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: TableCalendar(
-          calendarStyle: const CalendarStyle(
-            selectedDecoration: BoxDecoration(
-              color: Colors.red,
-            ),
+      body: TableCalendar(
+        calendarStyle: const CalendarStyle(
+          selectedDecoration: BoxDecoration(
+            color: Colors.red,
           ),
-          focusedDay: _focusedDay,
-          rowHeight: 100,
-          firstDay: DateTime(2000),
-          lastDay: DateTime(2100),
-          calendarFormat: CalendarFormat.month,
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-          ),
-          onDaySelected: (selectedDay, _) {
-            // Normalize the selectedDay and DateTime.now() to ignore time
-            final normalizedSelectedDay =
-                DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-            final normalizedToday = DateTime(
-                DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        ),
+        focusedDay: _focusedDay,
+        rowHeight: MediaQuery.of(context).size.height * 0.12,
+        firstDay: DateTime(2000),
+        lastDay: DateTime(2100),
+        calendarFormat: CalendarFormat.month,
+        headerStyle: const HeaderStyle(
+          formatButtonVisible: false,
+          titleCentered: true,
+        ),
+        onDaySelected: (selectedDay, _) {
+          // Normalize the selectedDay and DateTime.now() to ignore time
+          final normalizedSelectedDay =
+              DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+          final normalizedToday = DateTime(
+              DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
-            if (normalizedSelectedDay.isAfter(normalizedToday)) {
-              _showFutureDateError();
-            } else {
-              _logEntryBottomSheet(selectedDay);
-            }
-          },
-          eventLoader: (date) {
-            if (_logs.containsKey(date)) {
-              return [_logs[date]!.emoji];
-            }
-            return [];
-          },
-          calendarBuilders: CalendarBuilders(
-            markerBuilder: (context, date, events) {
-              if (events.isNotEmpty) {
-                return Positioned(
-                  bottom: 1,
-                  child: Container(
-                    margin: const EdgeInsets.only(
-                      top: 8.0,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: events
-                          .map(
-                            (event) => Text(
-                              event.toString(),
-                              style: const TextStyle(fontSize: 18),
-                            ),
-                          )
-                          .toList(),
-                    ),
+          if (normalizedSelectedDay.isAfter(normalizedToday)) {
+            _showFutureDateError();
+          } else {
+            _logEntryBottomSheet(selectedDay);
+          }
+        },
+        eventLoader: (date) {
+          if (_logs.containsKey(date)) {
+            return [_logs[date]!.emoji];
+          }
+          return [];
+        },
+        calendarBuilders: CalendarBuilders(
+          markerBuilder: (context, date, events) {
+            if (events.isNotEmpty) {
+              return Positioned(
+                bottom: 1,
+                child: Container(
+                  margin: const EdgeInsets.only(
+                    top: 8.0,
                   ),
-                );
-              }
-              return const SizedBox();
-            },
-          ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: events
+                        .map(
+                          (event) => Text(
+                            event.toString(),
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox();
+          },
         ),
       ),
     );
