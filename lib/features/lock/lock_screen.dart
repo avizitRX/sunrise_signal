@@ -7,14 +7,14 @@ import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import '../../services/auth_service.dart';
 
 class LockScreenPage extends StatefulWidget {
-  const LockScreenPage({Key? key}) : super(key: key);
+  const LockScreenPage({super.key});
 
   @override
   _LockScreenPageState createState() => _LockScreenPageState();
 }
 
 class _LockScreenPageState extends State<LockScreenPage> {
-  final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   final LocalAuthentication _localAuth = LocalAuthentication();
 
   bool _isPasscodeSet = false;
@@ -40,9 +40,9 @@ class _LockScreenPageState extends State<LockScreenPage> {
 
   // Check if biometric authentication is activated
   Future<void> _checkBiometricAvailability() async {
-    final AuthService _authService = AuthService();
+    final AuthService authService = AuthService();
     setState(() async {
-      _isBiometricEnabled = await _authService.isBiometricEnabled();
+      _isBiometricEnabled = await authService.isBiometricEnabled();
     });
   }
 
@@ -53,10 +53,10 @@ class _LockScreenPageState extends State<LockScreenPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Enter Passcode"),
+        title: const Text("Enter Passcode"),
         content: TextField(
           obscureText: true,
-          decoration: InputDecoration(hintText: "Passcode"),
+          decoration: const InputDecoration(hintText: "Passcode"),
           onChanged: (value) {
             enteredPasscode = value;
           },
@@ -74,10 +74,10 @@ class _LockScreenPageState extends State<LockScreenPage> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Incorrect passcode')));
+                    const SnackBar(content: Text('Incorrect passcode')));
               }
             },
-            child: Text("OK"),
+            child: const Text("OK"),
           ),
         ],
       ),
@@ -89,7 +89,7 @@ class _LockScreenPageState extends State<LockScreenPage> {
     try {
       bool isAuthenticated = await _localAuth.authenticate(
         localizedReason: "Please authenticate to unlock",
-        options: AuthenticationOptions(stickyAuth: true),
+        options: const AuthenticationOptions(stickyAuth: true),
       );
 
       if (isAuthenticated) {
@@ -102,7 +102,7 @@ class _LockScreenPageState extends State<LockScreenPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Biometric authentication failed')));
+            const SnackBar(content: Text('Biometric authentication failed')));
       }
     } on PlatformException catch (e) {
       ScaffoldMessenger.of(context)
@@ -114,7 +114,7 @@ class _LockScreenPageState extends State<LockScreenPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Lock Screen"),
+        title: const Text("Lock Screen"),
       ),
       body: Center(
         child: Column(
@@ -123,12 +123,12 @@ class _LockScreenPageState extends State<LockScreenPage> {
             if (_isPasscodeSet)
               ElevatedButton(
                 onPressed: _authenticateWithPasscode,
-                child: Text("Unlock with Passcode"),
+                child: const Text("Unlock with Passcode"),
               ),
             if (_isBiometricEnabled)
               ElevatedButton(
                 onPressed: _authenticateWithBiometrics,
-                child: Text("Unlock with Biometrics"),
+                child: const Text("Unlock with Biometrics"),
               ),
           ],
         ),

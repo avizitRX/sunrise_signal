@@ -1,3 +1,4 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
@@ -15,7 +16,7 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   Future<bool> _shouldShowLockScreen() async {
     final authService = AuthService();
@@ -26,8 +27,31 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AwesomeNotifications().initialize(
+      null,
+      [
+        NotificationChannel(
+          channelGroupKey: 'reminder_group',
+          channelKey: 'reminder',
+          channelName: 'Reminder',
+          channelDescription: 'Notification channel for reminders',
+          defaultColor: const Color(0xFF9D50DD),
+          ledColor: Colors.white,
+          playSound: false,
+          enableVibration: false,
+          enableLights: false,
+        ),
+      ],
+      channelGroups: [
+        NotificationChannelGroup(
+            channelGroupKey: 'reminder_group',
+            channelGroupName: 'Reminder Group')
+      ],
+      debug: true,
+    );
+
     return MaterialApp(
-      title: 'App Lock Example',
+      title: 'Sunrise Signal',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: FutureBuilder<bool>(
         future: _shouldShowLockScreen(),
@@ -39,7 +63,7 @@ class MyApp extends StatelessWidget {
           if (snapshot.data == true) {
             return const LockScreenPage();
           } else {
-            return const CalendarPage(); // Your main page after unlocking
+            return const CalendarPage();
           }
         },
       ),

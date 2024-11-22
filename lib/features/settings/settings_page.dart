@@ -11,7 +11,7 @@ import '../../services/secure_storage_service.dart';
 import '../../models/log_model.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  const SettingsPage({super.key});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
