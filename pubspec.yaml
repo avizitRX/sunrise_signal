@@ -48,6 +48,7 @@ dependencies:
   workmanager: ^0.5.2
   awesome_notifications: ^0.10.0
   awesome_notifications_core: ^0.10.0
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:sunrise_signal/features/analytics/analytics_page.dart';
 import 'package:sunrise_signal/features/settings/settings_page.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -54,11 +55,28 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {});
   }
 
+  Future<void> _removeLog(DateTime date) async {
+    _logs.remove(date);
+    await _storageService.saveLogs(_logs);
+    setState(() {});
+  }
+
   void _logEntryBottomSheet(DateTime date) {
     String? stressLevel;
     bool exercise = false;
     bool alcoholIntake = false;
     bool caffeineIntake = false;
+    String? emoji = '😔';
+
+    // Check if there is already an entry for the selected date
+    final existingLog = _logs[date];
+    if (existingLog != null) {
+      stressLevel = existingLog.stressLevel;
+      emoji = existingLog.emoji;
+      exercise = existingLog.exercise == 'Yes';
+      alcoholIntake = existingLog.alcoholIntake == 'Yes';
+      caffeineIntake = existingLog.caffeineIntake == 'Yes';
+    }
 
     showModalBottomSheet(
       context: context,
@@ -85,9 +103,9 @@ class _CalendarPageState extends State<CalendarPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        date.toLocal().toString().split(' ')[0],
+                        DateFormat('d MMMM yyyy').format(date.toLocal()),
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -143,7 +161,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       const SizedBox(height: 8),
                       CheckboxListTile(
-                        title: const Text('Exercise Yesterday?'),
+                        title: const Text('Exercised Yesterday?'),
                         value: exercise,
                         onChanged: (bool? value) {
                           setState(() {
@@ -177,20 +195,10 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       const SizedBox(height: 16),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                            onPressed: () {
+                          GestureDetector(
+                            onTap: () {
                               final sleepModel = Provider.of<SleepModel>(
                                   context,
                                   listen: false);
@@ -208,26 +216,21 @@ class _CalendarPageState extends State<CalendarPage> {
                                 Navigator.pop(context);
                               }
                             },
-                            child: const Text(
-                              '😔 No',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(100),
+                                color: Colors.red,
+                              ),
+                              child: const Text(
+                                'NO',
+                                style: TextStyle(color: Colors.white),
                               ),
                             ),
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              backgroundColor: Colors.green,
-                            ),
-                            onPressed: () {
+                          const SizedBox(width: 5),
+                          GestureDetector(
+                            onTap: () {
                               final sleepModel = Provider.of<SleepModel>(
                                   context,
                                   listen: false);
@@ -245,16 +248,74 @@ class _CalendarPageState extends State<CalendarPage> {
                                 Navigator.pop(context);
                               }
                             },
-                            child: const Text(
-                              '🍆 Yes',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(100),
+                                color: Colors.red,
+                              ),
+                              child: const Text(
+                                'YES',
+                                style: TextStyle(color: Colors.white),
                               ),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      if (existingLog != null) ...[
+                        ElevatedButton.icon(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                          onPressed: () {
+                            // Confirm deletion of the log
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('Delete Log Entry?'),
+                                  content: const Text(
+                                      'Are you sure you want to delete this entry?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        _removeLog(date);
+                                        Navigator.pop(context);
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          label: const Text(
+                            'Delete Entry',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
