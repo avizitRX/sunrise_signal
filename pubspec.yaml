@@ -63,10 +63,10 @@ dev_dependencies:
   flutter_launcher_icons: "^0.14.1"
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: "ic_launcher_monochrome"
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/icons/logo.png"
+  image_path: "assets/icons/logo_monochrome.png"
   min_sdk_android: 21 # android min sdk min:16, default 21
 
 # For information on the generic Dart part of this file, see the
@@ -81,8 +81,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - assets/
+  assets:
+    - assets/
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
