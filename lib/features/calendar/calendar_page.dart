@@ -217,46 +217,60 @@ class _CalendarPageState extends State<CalendarPage> {
                               }
                             },
                             child: Container(
-                              padding: const EdgeInsets.all(20),
+                              width: 80,
+                              height: 80,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(100),
                                 color: Colors.red,
                               ),
-                              child: const Text(
-                                'NO',
-                                style: TextStyle(color: Colors.white),
+                              child: const Center(
+                                child: Text(
+                                  'NO',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          GestureDetector(
-                            onTap: () {
-                              final sleepModel = Provider.of<SleepModel>(
-                                  context,
-                                  listen: false);
+                          Transform.translate(
+                            offset: const Offset(-20, 0),
+                            child: GestureDetector(
+                              onTap: () {
+                                final sleepModel = Provider.of<SleepModel>(
+                                    context,
+                                    listen: false);
 
-                              if (_formKey.currentState?.validate() ?? false) {
-                                _saveLog(
-                                  date,
-                                  emoji: '🍆',
-                                  sleep: sleepModel.sleepHours,
-                                  stress: stressLevel,
-                                  exercise: exercise ? 'Yes' : 'No',
-                                  alcoholIntake: alcoholIntake ? 'Yes' : 'No',
-                                  caffeineIntake: caffeineIntake ? 'Yes' : 'No',
-                                );
-                                Navigator.pop(context);
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(100),
-                                color: Colors.red,
-                              ),
-                              child: const Text(
-                                'YES',
-                                style: TextStyle(color: Colors.white),
+                                if (_formKey.currentState?.validate() ??
+                                    false) {
+                                  _saveLog(
+                                    date,
+                                    emoji: '🍆',
+                                    sleep: sleepModel.sleepHours,
+                                    stress: stressLevel,
+                                    exercise: exercise ? 'Yes' : 'No',
+                                    alcoholIntake: alcoholIntake ? 'Yes' : 'No',
+                                    caffeineIntake:
+                                        caffeineIntake ? 'Yes' : 'No',
+                                  );
+                                  Navigator.pop(context);
+                                }
+                              },
+                              child: Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(100),
+                                  color: Colors.red,
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'YES',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
