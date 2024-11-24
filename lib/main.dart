@@ -35,7 +35,7 @@ class MyApp extends StatelessWidget {
           channelKey: 'reminder',
           channelName: 'Reminder',
           channelDescription: 'Notification channel for reminders',
-          defaultColor: const Color(0xFF9D50DD),
+          defaultColor: Colors.red,
           ledColor: Colors.white,
           playSound: false,
           enableVibration: false,
@@ -52,7 +52,11 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'Sunrise Signal',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.red,
+        ),
+      ),
       home: FutureBuilder<bool>(
         future: _shouldShowLockScreen(),
         builder: (context, snapshot) {
