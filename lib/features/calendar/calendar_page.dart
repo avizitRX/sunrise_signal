@@ -259,7 +259,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 height: 80,
                                 decoration: BoxDecoration(
                                   border: Border.all(
-                                    color: Colors.white,
+                                    color: Colors.red.shade50,
                                     width: 2,
                                   ),
                                   borderRadius: BorderRadius.circular(100),

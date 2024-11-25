@@ -85,7 +85,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           "🍆 You are having a healthy frequency of morning wood. Continue maintaining a balanced lifestyle to keep it up.");
     } else if (_noCount > _yesCount) {
       suggestions.add(
-          "😔 Consider factors that might affect your morning wood, such as sleep, stress, vitamin-D consumption, and diet. A healthier lifestyle can improve this.");
+          "😔 You are experiencing fewer morning erections. Consider seeing a doctor.");
     } else {
       suggestions.add(
           "😔 The balance between morning wood and no morning wood is neutral. Keep track of factors like sleep, stress, vitamin-D consumption, and diet for improvement.");
@@ -107,8 +107,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           (_stressDistribution['High']! / totalStressEntries) * 100;
       final mediumStressPercent =
           (_stressDistribution['Medium']! / totalStressEntries) * 100;
-      final lowStressPercent =
-          (_stressDistribution['Low']! / totalStressEntries) * 100;
+      // final lowStressPercent =
+      //     (_stressDistribution['Low']! / totalStressEntries) * 100;
 
       if (highStressPercent > 50) {
         suggestions.add(

@@ -134,7 +134,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close the dialog without saving
+                Navigator.pop(context);
               },
               child: const Text('Cancel'),
             ),
@@ -215,8 +215,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (permissionStatus.isGranted) {
       try {
         // Access the Downloads folder
-        final directory = Directory(
-            '/storage/emulated/0/Download'); // Path to Downloads folder
+        final directory = Directory('/storage/emulated/0/Download');
 
         // Ensure the directory exists
         if (!directory.existsSync()) {
@@ -237,8 +236,9 @@ class _SettingsPageState extends State<SettingsPage> {
         // Notify the user of success
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Logs exported successfully! File saved in Downloads folder.')),
+            content: Text(
+                'Logs exported successfully! File saved in Downloads folder.'),
+          ),
         );
       } catch (e) {
         // Notify the user of any errors
@@ -328,7 +328,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(),
           ListTile(
             title: GestureDetector(
-              onTap: _exportLogs, // Handle title tap
+              onTap: _exportLogs,
               child: const Text('Export Data', style: TextStyle(fontSize: 16)),
             ),
             trailing: IconButton(
@@ -338,7 +338,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           ListTile(
             title: GestureDetector(
-              onTap: _importLogs, // Handle title tap
+              onTap: _importLogs,
               child: const Text('Import Data', style: TextStyle(fontSize: 16)),
             ),
             trailing: IconButton(
