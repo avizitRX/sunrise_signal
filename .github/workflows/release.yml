@@ -1,0 +1,31 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  android-build-split-abi:
+    name: Build Android APK (Split by ABI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build APK (Split by ABI)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload APK Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apks
+          path: build/app/outputs/flutter-apk/*.apk
