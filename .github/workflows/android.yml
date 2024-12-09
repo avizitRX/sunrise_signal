@@ -60,7 +60,7 @@ jobs:
         id: rename_apk
         run: |
           buildName=$(grep "version: " pubspec.yaml | sed 's/version: //g' | sed 's/+.*//g')
-          apkName="Ricochlime_v${buildName}.apk"
+          apkName="Sunrise_Signal_v${buildName}.apk"
           mv ${{ steps.sign_app.outputs.signedFile }} output/$apkName
           echo "apkName=$apkName" >> $GITHUB_OUTPUT
 
