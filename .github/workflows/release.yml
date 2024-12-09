@@ -1,13 +1,13 @@
-name: Flutter CI/CD (Tag Triggered)
+name: Create Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types:
+      - created
 
 jobs:
-  android-build-split-abi:
-    name: Build Android APK (Split by ABI)
+  android-build-signed-apk:
+    name: Build, Sign, and Upload APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -27,11 +27,38 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build APK (Split by ABI)
-        run: flutter build apk --release --split-per-abi
+      - name: Build APK (Release)
+        run: flutter build apk --release
 
-      - name: Upload APK Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: android-apks
-          path: build/app/outputs/flutter-apk/*.apk
+      - name: Decode Keystore File
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+
+      - name: Sign APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore keystore.jks -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" "$apk" "$KEY_ALIAS"
+
+      - name: Verify Signed APK
+        run: |
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          jarsigner -verify "$apk"
+
+      - name: Upload Signed APK to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          file="build/app/outputs/flutter-apk/app-release.apk"
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: $(file -b --mime-type $file)" \
+            --data-binary @$file \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=$(basename $file)"
