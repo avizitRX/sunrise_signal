@@ -5,6 +5,10 @@ on:
     types:
       - created
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   android-build-signed-apk:
     name: Build, Sign, and Upload APK
@@ -28,7 +32,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK (Release)
-        run: flutter build apk --release
+        run: flutter build apk --obfuscate --release
 
       - name: Decode Keystore File
         env:
@@ -53,12 +57,8 @@ jobs:
           jarsigner -verify "$apk"
 
       - name: Upload Signed APK to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          file="build/app/outputs/flutter-apk/app-release.apk"
-          curl -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: $(file -b --mime-type $file)" \
-            --data-binary @$file \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=$(basename $file)"
