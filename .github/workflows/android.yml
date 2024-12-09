@@ -23,11 +23,6 @@ jobs:
           restore-keys: |
             ${{ runner.OS }}-ricochlime-ubuntu-
 
-      - name: Remove dev dependencies
-        run: |
-          chmod +x ./patches/remove_dev_dependencies.sh
-          ./patches/remove_dev_dependencies.sh
-
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
