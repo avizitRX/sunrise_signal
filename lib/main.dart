@@ -47,7 +47,7 @@ class MyApp extends StatelessWidget {
             channelGroupKey: 'reminder_group',
             channelGroupName: 'Reminder Group')
       ],
-      debug: true,
+      debug: false,
     );
 
     return MaterialApp(

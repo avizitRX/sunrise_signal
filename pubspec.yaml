@@ -2,7 +2,7 @@ name: sunrise_signal
 description: "Morning wood tracker app for men's health."
 publish_to: 'none'
 
-version: 1.0.0+100000
+version: 1.0.0+1
 
 environment:
   sdk: ^3.5.4
