@@ -67,7 +67,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Ricochlime-Android
+          name: Sunrise_Signal
           path: output/${{ steps.rename_apk.outputs.apkName }}
 
       - name: Upload to GitHub release
