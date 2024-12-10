@@ -1,18 +1,18 @@
-
-
 # Sunrise Signal
 **Sunrise Signal** is an open-source app for men to monitor their morning wood patterns and gain insights into their health. This app helps track daily habits, providing a deeper understanding of potential correlations between lifestyle choices and well-being.
+
+## 🚀 Features
+-   **Interactive Calendar:** Log daily entries using emojis for quick and simple tracking.
+-   **Lifestyle Insights:** Record data on sleep, stress, exercise, alcohol, and caffeine to identify patterns.
+-   **Secure Local Storage:** All user data stays private, stored securely on the device.
+-   **App Lock:** The app can be locked using passcode and/or biometrics.
+-   **Material UI:** A sleek and user-friendly design for a seamless experience.
+-   **Open Source:** A fully open-source project to foster collaboration and community improvement.
 
 ## Screenshots
 | ![Interactive Calendar](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/1.png) | ![Detailed Analytics](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/2.png) |
 |--|--|
 | ![Suggestions to Improve](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/3.png) | ![Settings Page](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/4.png) |
-## 🚀 Features
--   **Interactive Calendar:** Log daily entries using emojis for quick and simple tracking.
--   **Lifestyle Insights:** Record data on sleep, stress, exercise, alcohol, and caffeine to identify patterns.
--   **Secure Local Storage:** All user data stays private, stored securely on the device.
--   **Material UI:** A sleek and user-friendly design for a seamless experience.
--   **Open Source:** A fully open-source project to foster collaboration and community improvement.
 
 ## 🛠️ Built With
 -   **Flutter:** Cross-platform framework for a consistent and smooth experience.
