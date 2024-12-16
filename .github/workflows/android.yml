@@ -78,6 +78,9 @@ jobs:
           name: Sunrise_Signal
           path: output/
 
+      - name: List files in output directory after renaming
+        run: ls -al output
+
       - name: Upload to GitHub release
         uses: svenstaro/upload-release-action@v2
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
