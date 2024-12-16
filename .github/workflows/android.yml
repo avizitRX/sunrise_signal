@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-regular-apk:
-    name: Build regular apk
+    name: Build regular APK
     runs-on: ubuntu-latest
 
     steps:
@@ -38,15 +38,15 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build apk
-        run: flutter build apk
+      - name: Build APK per ABI
+        run: flutter build apk --split-per-abi
       
-      - name: Move unsigned apk
+      - name: Move unsigned APKs
         run: |
           mkdir -p output
-          mv build/app/outputs/flutter-apk/app-release.apk output/
+          mv build/app/outputs/flutter-apk/*.apk output/
 
-      - name: Sign apk
+      - name: Sign APKs
         uses: ilharp/sign-android-release@v1
         id: sign_app
         with:
@@ -56,23 +56,25 @@ jobs:
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Rename signed apk
+      - name: Rename signed APKs
         id: rename_apk
         run: |
           buildName=$(grep "version: " pubspec.yaml | sed 's/version: //g' | sed 's/+.*//g')
-          apkName="Sunrise_Signal_v${buildName}.apk"
-          mv ${{ steps.sign_app.outputs.signedFile }} output/$apkName
-          echo "apkName=$apkName" >> $GITHUB_OUTPUT
+          for f in output/*.apk; do
+            apkName="Sunrise_Signal_v${buildName}_$(basename $f)"
+            mv $f output/$apkName
+            echo "apkName=$apkName" >> $GITHUB_OUTPUT
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Sunrise_Signal
-          path: output/${{ steps.rename_apk.outputs.apkName }}
+          path: output/
 
       - name: Upload to GitHub release
         uses: svenstaro/upload-release-action@v2
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: output/${{ steps.rename_apk.outputs.apkName }}
+          file: output/*.apk
