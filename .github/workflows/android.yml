@@ -40,11 +40,14 @@ jobs:
 
       - name: Build APK per ABI
         run: flutter build apk --split-per-abi
-      
+
       - name: Move unsigned APKs
         run: |
           mkdir -p output
           mv build/app/outputs/flutter-apk/*.apk output/
+
+      - name: List files in output directory
+        run: ls -al output
 
       - name: Sign APKs
         uses: ilharp/sign-android-release@v1
@@ -65,6 +68,9 @@ jobs:
             mv $f output/$apkName
             echo "apkName=$apkName" >> $GITHUB_OUTPUT
           done
+
+      - name: List files in output directory after renaming
+        run: ls -al output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
