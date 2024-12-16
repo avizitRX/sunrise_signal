@@ -62,7 +62,7 @@ jobs:
       - name: Rename signed APKs
         id: rename_apk
         run: |
-          for f in output/*.apk; do
+          for f in output/*-signed.apk; do
             abi=$(basename $f | sed 's/.*-\(arm64-v8a\|armeabi-v7a\|x86_64\).*/\1/')
             apkName="Sunrise_Signal_${abi}.apk"
             mv $f output/$apkName
@@ -75,7 +75,7 @@ jobs:
           name: Sunrise_Signal
           path: output/
 
-      - name: List files in output directory
+      - name: List files in output directory after renaming
         run: ls -al output
 
       - name: Upload to GitHub release
