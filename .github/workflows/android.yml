@@ -46,9 +46,6 @@ jobs:
           mkdir -p output
           mv build/app/outputs/flutter-apk/*.apk output/
 
-      - name: List files in output directory
-        run: ls -al output
-
       - name: Sign APKs
         uses: ilharp/sign-android-release@v1
         id: sign_app
@@ -68,6 +65,9 @@ jobs:
             mv $f output/$apkName
             echo "apkName=$apkName" >> $GITHUB_OUTPUT
           done
+
+      - name: List files in output directory
+        run: ls -al output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
