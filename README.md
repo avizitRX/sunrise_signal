@@ -1,6 +1,14 @@
 # Sunrise Signal
 **Sunrise Signal** is an open-source app for men to monitor their morning wood patterns and gain insights into their health. This app helps track daily habits, providing a deeper understanding of potential correlations between lifestyle choices and well-being.
 
+## Installation
+[<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
+    alt="Get it on GitHub"
+    height="80">](https://github.com/avizitRX/sunrise_signal/releases)
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
+    alt="Get it on F-Droid"
+    height="80">](https://f-droid.org/packages/com.avizitrx.sunrise.signal/)
+
 ## 🚀 Features
 -   **Interactive Calendar:** Log daily entries using emojis for quick and simple tracking.
 -   **Lifestyle Insights:** Record data on sleep, stress, exercise, alcohol, and caffeine to identify patterns.
