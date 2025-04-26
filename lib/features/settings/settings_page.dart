@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/auth_service.dart';
@@ -80,22 +81,39 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleReminder(bool value) async {
-    if (value) {
-      await ReminderService.scheduleDailyReminder();
-      setState(() {
-        _isReminderEnabled = true;
-      });
+    // Request notification permission
+    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+    bool? notificationPermission = await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()!
+        .requestNotificationsPermission();
+    if (notificationPermission == null || !notificationPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Daily reminder enabled!')),
+        const SnackBar(
+          content:
+              Text('Notification permission is required to enable reminders.'),
+        ),
       );
+      return;
     } else {
-      await ReminderService.cancelReminders();
-      setState(() {
-        _isReminderEnabled = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Daily reminder disabled.')),
-      );
+      if (value) {
+        await ReminderService().scheduleDailyReminder(hour: 3, minute: 14);
+        setState(() {
+          _isReminderEnabled = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Daily reminder enabled!')),
+        );
+      } else {
+        await ReminderService.cancelReminders();
+        setState(() {
+          _isReminderEnabled = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Daily reminder disabled.')),
+        );
+      }
     }
   }
 

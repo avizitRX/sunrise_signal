@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:sunrise_signal/features/analytics/analytics_page.dart';
 import 'package:sunrise_signal/features/settings/settings_page.dart';
@@ -25,6 +26,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     super.initState();
     _loadLogs();
+    _notificationInitialization();
   }
 
   Future<void> _loadLogs() async {
@@ -32,6 +34,22 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {
       _logs = logs;
     });
+  }
+
+  Future<void> _notificationInitialization() async {
+    // Initialize the Flutter Local Notifications Plugin
+    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    AndroidInitializationSettings initializationSettingsAndroid =
+        const AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    final InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
   Future<void> _saveLog(

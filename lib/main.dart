@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import 'package:sunrise_signal/features/lock/lock_screen.dart';
+import 'package:sunrise_signal/services/reminder_service.dart';
 import 'models/sleep_model.dart';
 import 'services/auth_service.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Init Notifications
+  ReminderService().initNotifications();
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => SleepModel(),
