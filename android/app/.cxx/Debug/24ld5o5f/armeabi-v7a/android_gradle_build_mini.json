@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/home/nemo/Apps/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/nemo/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/nemo/Documents/Coding/Flutter/sunrise_signal/android/app/.cxx/Debug/24ld5o5f/armeabi-v7a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/nemo/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/nemo/Documents/Coding/Flutter/sunrise_signal/android/app/.cxx/Debug/24ld5o5f/armeabi-v7a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

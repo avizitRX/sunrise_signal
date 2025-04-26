@@ -1,4 +1,3 @@
-import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
@@ -27,29 +26,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    AwesomeNotifications().initialize(
-      null,
-      [
-        NotificationChannel(
-          channelGroupKey: 'reminder_group',
-          channelKey: 'reminder',
-          channelName: 'Reminder',
-          channelDescription: 'Notification channel for reminders',
-          defaultColor: Colors.red,
-          ledColor: Colors.white,
-          playSound: false,
-          enableVibration: false,
-          enableLights: false,
-        ),
-      ],
-      channelGroups: [
-        NotificationChannelGroup(
-            channelGroupKey: 'reminder_group',
-            channelGroupName: 'Reminder Group')
-      ],
-      debug: false,
-    );
-
     return MaterialApp(
       title: 'Sunrise Signal',
       theme: ThemeData(
