@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -6,18 +7,18 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 
 class ReminderService {
   static const String _reminderKey = 'isReminderEnabled';
+  static const String _reminderHourKey = 'reminderHour';
+  static const String _reminderMinuteKey = 'reminderMinute';
   static const _secureStorage = FlutterSecureStorage();
+
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   // Initialization
   Future<void> initNotifications() async {
-    // Timezone Initialization
     tz.initializeTimeZones();
     final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(currentTimeZone));
-
-    // Notification Initialization
-    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
 
     AndroidInitializationSettings initializationSettingsAndroid =
         const AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -27,12 +28,9 @@ class ReminderService {
       android: initializationSettingsAndroid,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-    );
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  // Notifications Detail Setup
   NotificationDetails notificationDetails() {
     return const NotificationDetails(
       android: AndroidNotificationDetails(
@@ -45,28 +43,12 @@ class ReminderService {
     );
   }
 
-  // Show notification
-  // Future<void> showNotification({
-  //   int id = 0,
-  //   String title = 'Did you wake up with morning wood?',
-  // }) async {
-  //   return FlutterLocalNotificationsPlugin().show(
-  //     0,
-  //     title,
-  //     null,
-  //     _notificationDetails(),
-  //   );
-  // }
-
-  // Schedule daily reminders
   Future<void> scheduleDailyReminder({
     required int hour,
     required int minute,
   }) async {
-    // Get the current date and time in device's local timezone
     final now = tz.TZDateTime.now(tz.local);
 
-    // Schedule the notification
     var scheduledDate = tz.TZDateTime(
       tz.local,
       now.year,
@@ -76,28 +58,26 @@ class ReminderService {
       minute,
     );
 
-    await FlutterLocalNotificationsPlugin().zonedSchedule(
+    await _flutterLocalNotificationsPlugin.zonedSchedule(
       0,
       'Did you wake up with morning wood?',
-      'Open the app to log your morning wood.',
+      null,
       scheduledDate,
       notificationDetails(),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      // Repeat Everyday
       matchDateTimeComponents: DateTimeComponents.time,
     );
 
     await _saveReminderState(true);
+    await _saveReminderTime(hour, minute);
   }
 
-  // Cancel all reminders
   static Future<void> cancelReminders() async {
     await FlutterLocalNotificationsPlugin().cancelAll();
-
     await _saveReminderState(false);
+    await _deleteReminderTime();
   }
 
-  // Save the reminder state in secure storage
   static Future<void> _saveReminderState(bool isEnabled) async {
     await _secureStorage.write(
       key: _reminderKey,
@@ -105,9 +85,32 @@ class ReminderService {
     );
   }
 
-  // Check if the reminder is enabled
+  static Future<void> _saveReminderTime(int hour, int minute) async {
+    await _secureStorage.write(key: _reminderHourKey, value: hour.toString());
+    await _secureStorage.write(
+        key: _reminderMinuteKey, value: minute.toString());
+  }
+
+  static Future<void> _deleteReminderTime() async {
+    await _secureStorage.delete(key: _reminderHourKey);
+    await _secureStorage.delete(key: _reminderMinuteKey);
+  }
+
   static Future<bool> isReminderEnabled() async {
     final state = await _secureStorage.read(key: _reminderKey);
     return state == 'true';
+  }
+
+  static Future<TimeOfDay?> getReminderTime() async {
+    final hourStr = await _secureStorage.read(key: _reminderHourKey);
+    final minuteStr = await _secureStorage.read(key: _reminderMinuteKey);
+
+    if (hourStr != null && minuteStr != null) {
+      return TimeOfDay(
+        hour: int.parse(hourStr),
+        minute: int.parse(minuteStr),
+      );
+    }
+    return null;
   }
 }

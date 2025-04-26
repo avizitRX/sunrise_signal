@@ -22,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isPasscodeSet = false;
   bool _isBiometricEnabled = false;
   bool _isReminderEnabled = false;
+  TimeOfDay? _reminderTime;
 
   final AuthService _authService = AuthService();
   final SecureStorageService _storageService = SecureStorageService();
@@ -38,10 +39,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final passcodeSet = await _authService.isPasscodeSet();
     final biometricEnabled = await _authService.isBiometricEnabled();
     final reminderEnabled = await ReminderService.isReminderEnabled();
+    final reminderTime = await ReminderService.getReminderTime();
     setState(() {
       _isPasscodeSet = passcodeSet;
       _isBiometricEnabled = biometricEnabled;
       _isReminderEnabled = reminderEnabled;
+      _reminderTime = reminderTime;
     });
   }
 
@@ -80,14 +83,15 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _toggleReminder(bool value) async {
-    // Request notification permission
+  Future<bool> _requestNotificationPermission() async {
     FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
+
     bool? notificationPermission = await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()!
-        .requestNotificationsPermission();
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
     if (notificationPermission == null || !notificationPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -95,25 +99,49 @@ class _SettingsPageState extends State<SettingsPage> {
               Text('Notification permission is required to enable reminders.'),
         ),
       );
-      return;
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _toggleReminder(bool value) async {
+    if (value) {
+      await _pickTimeAndSetReminder();
     } else {
-      if (value) {
-        await ReminderService().scheduleDailyReminder(hour: 3, minute: 14);
-        setState(() {
-          _isReminderEnabled = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Daily reminder enabled!')),
-        );
-      } else {
-        await ReminderService.cancelReminders();
-        setState(() {
-          _isReminderEnabled = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Daily reminder disabled.')),
-        );
-      }
+      await ReminderService.cancelReminders();
+      setState(() {
+        _isReminderEnabled = false;
+        _reminderTime = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daily reminder disabled.')),
+      );
+    }
+  }
+
+  Future<void> _pickTimeAndSetReminder() async {
+    bool permissionGranted = await _requestNotificationPermission();
+    if (!permissionGranted) return; // Stop if no permission
+
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _reminderTime ?? TimeOfDay.now(),
+    );
+
+    if (pickedTime != null) {
+      setState(() {
+        _reminderTime = pickedTime;
+      });
+      await ReminderService().scheduleDailyReminder(
+        hour: pickedTime.hour,
+        minute: pickedTime.minute,
+      );
+      setState(() {
+        _isReminderEnabled = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Daily reminder set!')),
+      );
     }
   }
 
@@ -322,11 +350,27 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         children: [
           ListTile(
-            title: const Text('Enable Daily Reminder'),
+            title: const Text('Daily Reminder'),
+            subtitle: Text(
+              _isReminderEnabled && _reminderTime != null
+                  ? _reminderTime!.format(context)
+                  : 'Off',
+            ),
             trailing: Switch(
               value: _isReminderEnabled,
-              onChanged: _toggleReminder,
+              onChanged: (value) async {
+                if (value) {
+                  await _pickTimeAndSetReminder();
+                } else {
+                  await _toggleReminder(false);
+                }
+              },
             ),
+            onTap: () async {
+              if (!_isReminderEnabled) {
+                await _pickTimeAndSetReminder();
+              }
+            },
           ),
           const Divider(),
           ListTile(
