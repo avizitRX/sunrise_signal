@@ -1,5 +1,5 @@
 # Sunrise Signal
-**Sunrise Signal** is an open-source app for men to monitor their morning wood patterns and gain insights into their health. This app helps track daily habits, providing a deeper understanding of potential correlations between lifestyle choices and well-being.
+**Sunrise Signal** is a free and open-source app for tracking and understanding morning wood to gain better health insights. This app helps track daily habits, providing a deeper understanding of potential correlations between lifestyle choices and well-being.
 
 ## Installation
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
