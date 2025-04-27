@@ -117,8 +117,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _isBiometricEnabled = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Disabled Unlock with Biometric/Device Lock!')),
+          const SnackBar(content: Text('Disabled Biometric/Device Lock!')),
         );
         setState(() {
           _isAuthenticating = false;
@@ -294,8 +293,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _isBiometricEnabled = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Enabled Unlock with Biometric/Device Lock!')),
+      const SnackBar(content: Text('Enabled Biometric/Device Lock!')),
     );
   }
 
@@ -385,6 +383,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    int flag = 0;
+    bool locked = true;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -452,6 +453,47 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: _importLogs,
             ),
           ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () {
+              if (flag > 8) {
+                locked = false;
+              }
+              flag++;
+            },
+            onLongPress: () {
+              if (!locked) {
+                showDialog<String>(
+                  context: context,
+                  builder: (BuildContext context) => AlertDialog(
+                    content: Padding(
+                      padding: const EdgeInsets.all(15.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Developed by Avizit Roy\nWebsite: avizitRX.com',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, 'OK'),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            },
+            child: const Center(
+              child: Text('Sunrise Signal v2.0.0'),
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
