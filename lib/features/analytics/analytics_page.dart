@@ -296,9 +296,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
           titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: true),
-            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
