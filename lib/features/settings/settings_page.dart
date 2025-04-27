@@ -93,7 +93,7 @@ class _SettingsPageState extends State<SettingsPage> {
     bool authenticated = false;
     try {
       authenticated = await _localAuth.authenticate(
-        localizedReason: 'Authenticate to change biometric settings',
+        localizedReason: 'Authenticate using your device lock to continue',
         options: const AuthenticationOptions(biometricOnly: true),
       );
     } catch (e) {
@@ -119,7 +119,8 @@ class _SettingsPageState extends State<SettingsPage> {
           _isBiometricEnabled = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biometric lock disabled.')),
+          const SnackBar(
+              content: Text('Disabled Unlock with Biometric/Device Lock!')),
         );
         setState(() {
           _isAuthenticating = false;
@@ -295,7 +296,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _isBiometricEnabled = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Biometric lock enabled successfully!')),
+      const SnackBar(
+          content: Text('Enabled Unlock with Biometric/Device Lock!')),
     );
   }
 
@@ -434,7 +436,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (_hasBiometrics)
             ListTile(
-              title: const Text('Enable Biometric Lock'),
+              title: const Text('Enable Biometric/Device Lock'),
               trailing: Switch(
                 value: _isBiometricEnabled,
                 onChanged: _toggleBiometric,
