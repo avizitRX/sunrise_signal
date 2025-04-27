@@ -3,18 +3,26 @@ import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import 'package:sunrise_signal/features/lock/lock_screen.dart';
 import 'package:sunrise_signal/services/reminder_service.dart';
+import 'package:sunrise_signal/services/theme_service.dart';
 import 'models/sleep_model.dart';
 import 'services/auth_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Create ThemeService instance
+  final themeService = ThemeService();
+  await themeService.loadTheme();
 
   // Init Notifications
   ReminderService().initNotifications();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => SleepModel(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SleepModel()),
+        ChangeNotifierProvider(create: (_) => themeService),
+      ],
       child: const MyApp(),
     ),
   );
@@ -37,8 +45,22 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.red,
+          brightness: Brightness.light,
         ),
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.black,
+          brightness: Brightness.dark,
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          backgroundColor: Colors.brown,
+          surfaceTintColor: Colors.brown,
+        ),
+      ),
+      themeMode: Provider.of<ThemeService>(context, listen: true).isDarkMode
+          ? ThemeMode.dark
+          : ThemeMode.light,
       home: FutureBuilder<bool>(
         future: _shouldShowLockScreen(),
         builder: (context, snapshot) {

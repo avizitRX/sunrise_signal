@@ -128,13 +128,15 @@ class _CalendarPageState extends State<CalendarPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'DID YOU WAKE UP WITH MORNING WOOD?',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.redAccent,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white // for dark mode
+                              : Colors.redAccent, // for light mode
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -238,6 +240,10 @@ class _CalendarPageState extends State<CalendarPage> {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.red.shade50,
+                                  width: 2,
+                                ),
                                 borderRadius: BorderRadius.circular(100),
                                 color: Colors.red,
                               ),
@@ -410,6 +416,7 @@ class _CalendarPageState extends State<CalendarPage> {
           selectedDecoration: BoxDecoration(
             color: Colors.red,
           ),
+          outsideDaysVisible: false,
         ),
         focusedDay: _focusedDay,
         rowHeight: MediaQuery.of(context).size.height * 0.12,

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:sunrise_signal/services/theme_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/reminder_service.dart';
 import '../../services/secure_storage_service.dart';
@@ -434,6 +436,18 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           const Divider(),
           ListTile(
+            title: const Text('Dark Theme'),
+            trailing: Consumer<ThemeService>(
+              builder: (context, themeService, _) => Switch(
+                value: themeService.isDarkMode,
+                onChanged: (value) {
+                  themeService.toggleDarkMode(value);
+                },
+              ),
+            ),
+          ),
+          const Divider(),
+          ListTile(
             title: GestureDetector(
               onTap: _exportLogs,
               child: const Text('Export Data', style: TextStyle(fontSize: 16)),
@@ -481,8 +495,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     actions: <Widget>[
                       TextButton(
-                        onPressed: () => Navigator.pop(context, 'OK'),
-                        child: const Text('OK'),
+                        onPressed: () => Navigator.pop(context, 'Close'),
+                        child: const Text('Close'),
                       ),
                     ],
                   ),
