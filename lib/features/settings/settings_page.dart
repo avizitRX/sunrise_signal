@@ -4,6 +4,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/auth_service.dart';
@@ -20,18 +21,22 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _isPasscodeSet = false;
+  bool _hasBiometrics = false;
   bool _isBiometricEnabled = false;
   bool _isReminderEnabled = false;
   TimeOfDay? _reminderTime;
+  bool _isAuthenticating = false;
 
   final AuthService _authService = AuthService();
   final SecureStorageService _storageService = SecureStorageService();
+  final LocalAuthentication _localAuth = LocalAuthentication();
   Map<DateTime, LogModel> _logs = {};
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _checkBiometrics();
     _loadLogs();
   }
 
@@ -46,6 +51,16 @@ class _SettingsPageState extends State<SettingsPage> {
       _isReminderEnabled = reminderEnabled;
       _reminderTime = reminderTime;
     });
+  }
+
+  Future<void> _checkBiometrics() async {
+    bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
+    bool isDeviceSupported = await _localAuth.isDeviceSupported();
+    if (mounted) {
+      setState(() {
+        _hasBiometrics = canCheckBiometrics && isDeviceSupported;
+      });
+    }
   }
 
   Future<void> _loadLogs() async {
@@ -70,16 +85,53 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleBiometric(bool value) async {
-    if (value) {
-      await _enableBiometricLock();
-    } else {
-      await _authService.disableBiometricLock();
-      setState(() {
-        _isBiometricEnabled = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biometric lock disabled.')),
+    if (_isAuthenticating) return;
+    setState(() {
+      _isAuthenticating = true;
+    });
+
+    bool authenticated = false;
+    try {
+      authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to change biometric settings',
+        options: const AuthenticationOptions(biometricOnly: true),
       );
+    } catch (e) {
+      print('Authentication error: $e');
+    }
+
+    if (!mounted) {
+      setState(() {
+        _isAuthenticating = false;
+      });
+      return;
+    }
+
+    if (authenticated) {
+      if (value) {
+        await _enableBiometricLock();
+        setState(() {
+          _isAuthenticating = false;
+        });
+      } else {
+        await _authService.disableBiometricLock();
+        setState(() {
+          _isBiometricEnabled = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric lock disabled.')),
+        );
+        setState(() {
+          _isAuthenticating = false;
+        });
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Authentication failed')),
+      );
+      setState(() {
+        _isAuthenticating = false;
+      });
     }
   }
 
@@ -380,13 +432,14 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: _togglePasscode,
             ),
           ),
-          ListTile(
-            title: const Text('Enable Biometric Lock'),
-            trailing: Switch(
-              value: _isBiometricEnabled,
-              onChanged: _toggleBiometric,
+          if (_hasBiometrics)
+            ListTile(
+              title: const Text('Enable Biometric Lock'),
+              trailing: Switch(
+                value: _isBiometricEnabled,
+                onChanged: _toggleBiometric,
+              ),
             ),
-          ),
           const Divider(),
           ListTile(
             title: GestureDetector(

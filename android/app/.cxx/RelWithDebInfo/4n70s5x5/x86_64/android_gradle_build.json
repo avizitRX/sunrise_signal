@@ -1,0 +1,28 @@
+{
+  "buildFiles": [
+    "/home/nemo/Apps/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/nemo/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/nemo/Documents/Coding/Flutter/sunrise_signal/android/app/.cxx/RelWithDebInfo/4n70s5x5/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/nemo/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/nemo/Documents/Coding/Flutter/sunrise_signal/android/app/.cxx/RelWithDebInfo/4n70s5x5/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {},
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/nemo/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/home/nemo/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": []
+}
