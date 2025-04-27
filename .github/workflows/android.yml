@@ -47,7 +47,7 @@ jobs:
           mv build/app/outputs/flutter-apk/*.apk output/
 
       - name: Sign APKs
-        uses: ilharp/sign-android-release@v1
+        uses: ilharp/sign-android-release@v2
         id: sign_app
         with:
           releaseDir: output
