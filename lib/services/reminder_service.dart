@@ -21,7 +21,7 @@ class ReminderService {
     tz.setLocalLocation(tz.getLocation(currentTimeZone));
 
     AndroidInitializationSettings initializationSettingsAndroid =
-        const AndroidInitializationSettings('@mipmap/ic_launcher');
+        const AndroidInitializationSettings('assets/icon.png');
 
     final InitializationSettings initializationSettings =
         InitializationSettings(
