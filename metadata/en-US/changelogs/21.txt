@@ -1,0 +1,5 @@
+- Dark theme
+- Set reminder at specific time
+- Screen/biometric lock now asks for lock before enabling or disabling
+- SAF for data export
+- Other misc updates
