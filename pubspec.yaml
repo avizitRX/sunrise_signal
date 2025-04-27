@@ -18,8 +18,6 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   file_picker: ^8.1.4
   fl_chart: ^0.69.1
-  permission_handler: ^11.3.1
-  device_info_plus: ^11.1.1
   # flutter_launcher_icons: ^0.14.1
   local_auth: ^2.3.0
   # workmanager: ^0.5.2

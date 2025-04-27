@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/auth_service.dart';
 import '../../services/reminder_service.dart';
@@ -302,58 +300,49 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _exportLogs() async {
-    AndroidDeviceInfo build = await DeviceInfoPlugin().androidInfo;
-    PermissionStatus permissionStatus;
+    bool hasUserAborted = true;
+    String? pickedSaveFilePath;
 
-    // Request storage permission
-    if (build.version.sdkInt >= 30) {
-      permissionStatus = await Permission.manageExternalStorage.request();
-    } else {
-      permissionStatus = await Permission.storage.request();
-    }
-
-    if (permissionStatus.isGranted) {
-      try {
-        // Access the Downloads folder
-        final directory = Directory('/storage/emulated/0/Download');
-
-        // Ensure the directory exists
-        if (!directory.existsSync()) {
-          directory.createSync(recursive: true);
-        }
-
-        // Create the file path
-        final filePath = '${directory.path}/sunrise_signal_data_export.json';
-
-        // Write the logs to the file
-        final file = File(filePath);
-        final logsJson = jsonEncode(
-          _logs.map(
-              (key, value) => MapEntry(key.toIso8601String(), value.toMap())),
-        );
-        await file.writeAsString(logsJson);
-
-        // Notify the user of success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Logs exported successfully! File saved in Downloads folder.'),
-          ),
-        );
-      } catch (e) {
-        // Notify the user of any errors
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export logs: $e')),
-        );
-      }
-    } else {
-      // Notify the user if permission is denied
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Storage permission is required to export logs.'),
+    try {
+      // Prepare logs into bytes
+      final logsJson = jsonEncode(
+        _logs.map(
+          (key, value) => MapEntry(key.toIso8601String(), value.toMap()),
         ),
       );
+      final Uint8List logsBytes = Uint8List.fromList(utf8.encode(logsJson));
+
+      // Show "Save As" dialog
+      pickedSaveFilePath = await FilePicker.platform.saveFile(
+        allowedExtensions: ['json'],
+        type: FileType.custom,
+        dialogTitle: 'Export your logs',
+        fileName: 'sunrise_signal_data_export.json',
+        bytes: logsBytes,
+      );
+
+      hasUserAborted = pickedSaveFilePath == null;
+    } on PlatformException catch (e) {
+      _logException('Unsupported operation: $e');
+    } catch (e) {
+      _logException('Error: $e');
     }
+
+    if (!mounted) return;
+
+    if (hasUserAborted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Export cancelled.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Logs exported successfully!')),
+      );
+    }
+  }
+
+  void _logException(String message) {
+    debugPrint('Exception: $message');
   }
 
   Future<void> _importLogs() async {
