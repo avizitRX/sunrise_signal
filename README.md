@@ -20,7 +20,7 @@
 ## Screenshots
 | ![Interactive Calendar](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/1.png) | ![Detailed Analytics](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/2.png) |
 |--|--|
-| ![Suggestions to Improve](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/3.png) | ![Settings Page](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/4.png) |
+| ![Suggestions to Improve](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/3.png) | ![Settings Page](https://github.com/avizitRX/sunrise_signal/blob/172b3b0e34a718481cc5d2c98bc55b4eab877138/metadata/en-US/images/phoneScreenshots/4.png) |
 
 ## 🛠️ Built With
 -   **Flutter:** Cross-platform framework for a consistent and smooth experience.
