@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class ReminderService {
   static const String _reminderKey = 'isReminderEnabled';
@@ -17,18 +17,13 @@ class ReminderService {
   // Initialization
   Future<void> initNotifications() async {
     tz.initializeTimeZones();
-    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(currentTimeZone));
 
-    AndroidInitializationSettings initializationSettingsAndroid =
-        const AndroidInitializationSettings('assets/icon.png');
+    // 1. Receive the TimezoneInfo object
+    final TimezoneInfo timezoneInfo = await FlutterTimezone.getLocalTimezone();
 
-    final InitializationSettings initializationSettings =
-        InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
-
-    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    // 2. Extract the String name to pass into tz.getLocation()
+    tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
+    // Note: If `.name` isn't available on your object, try `timezoneInfo.identifier` or `timezoneInfo.toString()`
   }
 
   NotificationDetails notificationDetails() {
@@ -59,11 +54,10 @@ class ReminderService {
     );
 
     await _flutterLocalNotificationsPlugin.zonedSchedule(
-      0,
-      'Did you wake up with morning wood?',
-      null,
-      scheduledDate,
-      notificationDetails(),
+      id: 0,
+      title: 'Did you wake up with morning wood?',
+      scheduledDate: scheduledDate,
+      notificationDetails: notificationDetails(),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
@@ -87,8 +81,7 @@ class ReminderService {
 
   static Future<void> _saveReminderTime(int hour, int minute) async {
     await _secureStorage.write(key: _reminderHourKey, value: hour.toString());
-    await _secureStorage.write(
-        key: _reminderMinuteKey, value: minute.toString());
+    await _secureStorage.write(key: _reminderMinuteKey, value: minute.toString());
   }
 
   static Future<void> _deleteReminderTime() async {

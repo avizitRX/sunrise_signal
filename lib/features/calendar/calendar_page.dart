@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/analytics/analytics_page.dart';
 import 'package:sunrise_signal/features/settings/settings_page.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:provider/provider.dart';
+
 import '../../models/log_model.dart';
 import '../../models/sleep_model.dart';
 import '../../services/secure_storage_service.dart';
@@ -44,12 +45,11 @@ class _CalendarPageState extends State<CalendarPage> {
     AndroidInitializationSettings initializationSettingsAndroid =
         const AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final InitializationSettings initializationSettings =
-        InitializationSettings(
+    final InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
   }
 
   Future<void> _saveLog(
@@ -84,13 +84,11 @@ class _CalendarPageState extends State<CalendarPage> {
     bool exercise = false;
     bool alcoholIntake = false;
     bool caffeineIntake = false;
-    String? emoji = '😔';
 
     // Check if there is already an entry for the selected date
     final existingLog = _logs[date];
     if (existingLog != null) {
       stressLevel = existingLog.stressLevel;
-      emoji = existingLog.emoji;
       exercise = existingLog.exercise == 'Yes';
       alcoholIntake = existingLog.alcoholIntake == 'Yes';
       caffeineIntake = existingLog.caffeineIntake == 'Yes';
@@ -161,9 +159,8 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: stressLevel,
-                        decoration:
-                            const InputDecoration(labelText: 'Stress Level'),
+                        initialValue: stressLevel,
+                        decoration: const InputDecoration(labelText: 'Stress Level'),
                         items: ['Low', 'Medium', 'High']
                             .map((level) => DropdownMenuItem(
                                   value: level,
@@ -175,9 +172,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             stressLevel = value;
                           });
                         },
-                        validator: (value) => value == null
-                            ? 'Please select a stress level'
-                            : null,
+                        validator: (value) => value == null ? 'Please select a stress level' : null,
                       ),
                       const SizedBox(height: 8),
                       CheckboxListTile(
@@ -219,9 +214,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         children: [
                           GestureDetector(
                             onTap: () {
-                              final sleepModel = Provider.of<SleepModel>(
-                                  context,
-                                  listen: false);
+                              final sleepModel = Provider.of<SleepModel>(context, listen: false);
 
                               if (_formKey.currentState?.validate() ?? false) {
                                 _saveLog(
@@ -259,12 +252,9 @@ class _CalendarPageState extends State<CalendarPage> {
                             offset: const Offset(-20, 0),
                             child: GestureDetector(
                               onTap: () {
-                                final sleepModel = Provider.of<SleepModel>(
-                                    context,
-                                    listen: false);
+                                final sleepModel = Provider.of<SleepModel>(context, listen: false);
 
-                                if (_formKey.currentState?.validate() ??
-                                    false) {
+                                if (_formKey.currentState?.validate() ?? false) {
                                   _saveLog(
                                     date,
                                     emoji: '🍆',
@@ -272,8 +262,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                     stress: stressLevel,
                                     exercise: exercise ? 'Yes' : 'No',
                                     alcoholIntake: alcoholIntake ? 'Yes' : 'No',
-                                    caffeineIntake:
-                                        caffeineIntake ? 'Yes' : 'No',
+                                    caffeineIntake: caffeineIntake ? 'Yes' : 'No',
                                   );
                                   Navigator.pop(context);
                                 }
@@ -324,8 +313,8 @@ class _CalendarPageState extends State<CalendarPage> {
                               builder: (context) {
                                 return AlertDialog(
                                   title: const Text('Delete Log Entry?'),
-                                  content: const Text(
-                                      'Are you sure you want to delete this entry?'),
+                                  content:
+                                      const Text('Are you sure you want to delete this entry?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () {
@@ -431,8 +420,8 @@ class _CalendarPageState extends State<CalendarPage> {
           // Normalize the selectedDay and DateTime.now() to ignore time
           final normalizedSelectedDay =
               DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-          final normalizedToday = DateTime(
-              DateTime.now().year, DateTime.now().month, DateTime.now().day);
+          final normalizedToday =
+              DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
           if (normalizedSelectedDay.isAfter(normalizedToday)) {
             _showFutureDateError();

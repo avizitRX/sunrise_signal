@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:flutter/services.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 
 import '../../services/auth_service.dart';
@@ -73,8 +73,8 @@ class _LockScreenPageState extends State<LockScreenPage> {
                   (Route<dynamic> route) => false,
                 );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Incorrect passcode')));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Incorrect passcode')));
               }
             },
             child: const Text("OK"),
@@ -89,7 +89,6 @@ class _LockScreenPageState extends State<LockScreenPage> {
     try {
       bool isAuthenticated = await _localAuth.authenticate(
         localizedReason: "Please authenticate to unlock",
-        options: const AuthenticationOptions(stickyAuth: true),
       );
 
       if (isAuthenticated) {
@@ -101,12 +100,11 @@ class _LockScreenPageState extends State<LockScreenPage> {
           (Route<dynamic> route) => false,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Biometric authentication failed')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Biometric authentication failed')));
       }
     } on PlatformException catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 

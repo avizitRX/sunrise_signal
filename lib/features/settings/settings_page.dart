@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/services/theme_service.dart';
+
+import '../../models/log_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/reminder_service.dart';
 import '../../services/secure_storage_service.dart';
-import '../../models/log_model.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -94,7 +96,6 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       authenticated = await _localAuth.authenticate(
         localizedReason: 'Authenticate using your device lock to continue',
-        options: const AuthenticationOptions(biometricOnly: true),
       );
     } catch (e) {
       print('Authentication error: $e');
@@ -140,15 +141,13 @@ class _SettingsPageState extends State<SettingsPage> {
         FlutterLocalNotificationsPlugin();
 
     bool? notificationPermission = await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
 
     if (notificationPermission == null || !notificationPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Notification permission is required to enable reminders.'),
+          content: Text('Notification permission is required to enable reminders.'),
         ),
       );
       return false;
@@ -199,8 +198,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> showSetPasscodeDialog(BuildContext context) async {
     final TextEditingController passcodeController = TextEditingController();
-    final TextEditingController confirmPasscodeController =
-        TextEditingController();
+    final TextEditingController confirmPasscodeController = TextEditingController();
 
     await showDialog(
       context: context,
@@ -239,8 +237,7 @@ class _SettingsPageState extends State<SettingsPage> {
             TextButton(
               onPressed: () async {
                 final String passcode = passcodeController.text.trim();
-                final String confirmPasscode =
-                    confirmPasscodeController.text.trim();
+                final String confirmPasscode = confirmPasscodeController.text.trim();
 
                 if (passcode.isEmpty || confirmPasscode.isEmpty) {
                   _showErrorDialog(context, 'Passcode cannot be blank.');
@@ -301,7 +298,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _exportLogs() async {
     bool hasUserAborted = true;
-    String? pickedSaveFilePath;
 
     try {
       // Prepare logs into bytes
@@ -313,13 +309,16 @@ class _SettingsPageState extends State<SettingsPage> {
       final Uint8List logsBytes = Uint8List.fromList(utf8.encode(logsJson));
 
       // Show "Save As" dialog
-      pickedSaveFilePath = await FilePicker.platform.saveFile(
+      final Uri? pickedSaveUri = await FilePicker.saveFile(
         allowedExtensions: ['json'],
         type: FileType.custom,
         dialogTitle: 'Export your logs',
         fileName: 'sunrise_signal_data_export.json',
         bytes: logsBytes,
       );
+
+      // Convert to String? path
+      final String? pickedSaveFilePath = pickedSaveUri?.path;
 
       hasUserAborted = pickedSaveFilePath == null;
     } on PlatformException catch (e) {
@@ -346,9 +345,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _importLogs() async {
-    final result = await FilePicker.platform.pickFiles();
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
+    final result = await FilePicker.pickFiles();
+    if (result.single.path != null) {
+      final file = File(result.single.path!);
       final content = await file.readAsString();
       final Map<String, dynamic> decodedLogs = jsonDecode(content);
       final importedLogs = decodedLogs.map((key, value) => MapEntry(
@@ -398,9 +397,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             title: const Text('Daily Reminder'),
             subtitle: Text(
-              _isReminderEnabled && _reminderTime != null
-                  ? _reminderTime!.format(context)
-                  : 'Off',
+              _isReminderEnabled && _reminderTime != null ? _reminderTime!.format(context) : 'Off',
             ),
             trailing: Switch(
               value: _isReminderEnabled,
