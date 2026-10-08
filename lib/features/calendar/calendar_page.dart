@@ -2,11 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../models/log_model.dart';
-import '../../models/sleep_model.dart';
 import '../../services/secure_storage_service.dart';
 import '../analytics/analytics_page.dart';
 import '../settings/settings_page.dart';
@@ -27,7 +25,7 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay;
+    _selectedDay = _normalizeDate(_focusedDay);
     _loadLogs();
     _notificationInitialization();
   }
@@ -81,15 +79,21 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {});
   }
 
+  List<LogModel> _getMonthLogs(DateTime month) {
+    return _logs.entries
+        .where((e) => e.key.year == month.year && e.key.month == month.month)
+        .map((e) => e.value)
+        .toList();
+  }
+
   void _logEntryBottomSheet(DateTime date) {
     final normalized = _normalizeDate(date);
     final existingLog = _logs[normalized];
 
-    // Form states
+    double sleepHours = existingLog?.sleepHours ?? 7.0;
     String selectedEmoji = existingLog?.emoji ?? '🍆';
     String stressLevel = existingLog?.stressLevel ?? 'Low';
 
-    // Parse sexual activity to support selecting both independently
     final currentSexActivity = existingLog?.sexualActivity ?? 'None';
     bool hadSex = currentSexActivity == 'Sex' || currentSexActivity == 'Both';
     bool didMasturbate = currentSexActivity == 'Masturbation' || currentSexActivity == 'Both';
@@ -111,288 +115,257 @@ class _CalendarPageState extends State<CalendarPage> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            return Consumer<SleepModel>(
-              builder: (context, sleepModel, _) {
-                return TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 20 * (1 - value)),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      top: 12,
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Drag Handle
-                          Center(
-                            child: Container(
-                              width: 36,
-                              height: 4,
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: isDark ? Colors.white24 : Colors.black12,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-
-                          // Date badge + Delete action
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  DateFormat('EEEE, MMM d').format(date).toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    letterSpacing: 0.8,
-                                    fontWeight: FontWeight.w700,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                              if (existingLog != null)
-                                IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: EdgeInsets.zero,
-                                  icon: const Icon(CupertinoIcons.trash,
-                                      color: Colors.redAccent, size: 18),
-                                  onPressed: () async {
-                                    await _removeLog(date);
-                                    if (context.mounted) Navigator.pop(context);
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Title
-                          const Text(
-                            'Did you wake up with morning wood?',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-
-                          // 24-Hour Scope Notice
-                          Row(
-                            children: [
-                              Icon(CupertinoIcons.clock_fill,
-                                  size: 14, color: theme.colorScheme.primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Log all inputs based on the past 24 hours',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white60 : Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // YES / NO Cards
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _YesNoCard(
-                                  title: 'YES',
-                                  emoji: '🍆',
-                                  isSelected: selectedEmoji == '🍆',
-                                  activeColor: theme.colorScheme.primary,
-                                  onTap: () => setModalState(() => selectedEmoji = '🍆'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _YesNoCard(
-                                  title: 'NO',
-                                  emoji: '😔',
-                                  isSelected: selectedEmoji == '😔',
-                                  activeColor: const Color(0xFF64748B),
-                                  onTap: () => setModalState(() => selectedEmoji = '😔'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-
-                          // Sleep Duration
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Sleep Duration',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              Text(
-                                '${sleepModel.sleepHours.toStringAsFixed(1)} hrs',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Slider(
-                            min: 1,
-                            max: 12,
-                            divisions: 22,
-                            value: sleepModel.sleepHours.clamp(1.0, 12.0),
-                            onChanged: (val) {
-                              setModalState(() => sleepModel.sleepHours = val);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Stress Level (Past 24h)
-                          const Text('Stress Level (Past 24h)',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
-                          SegmentedButton<String>(
-                            style: _customSegmentedStyle(context),
-                            segments: const [
-                              ButtonSegment(
-                                  value: 'Low',
-                                  label:
-                                      Text('Low', style: TextStyle(fontWeight: FontWeight.w600))),
-                              ButtonSegment(
-                                  value: 'Medium',
-                                  label: Text('Medium',
-                                      style: TextStyle(fontWeight: FontWeight.w600))),
-                              ButtonSegment(
-                                  value: 'High',
-                                  label:
-                                      Text('High', style: TextStyle(fontWeight: FontWeight.w600))),
-                            ],
-                            selected: {stressLevel},
-                            onSelectionChanged: (set) =>
-                                setModalState(() => stressLevel = set.first),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Lifestyle Habits (Past 24h)
-                          const Text('Lifestyle Habits (Past 24h)',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 10),
-
-                          // Row 1: Sexual Habits (Independent Multi-select)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _HabitPill(
-                                  label: 'Sex',
-                                  icon: CupertinoIcons.heart_fill,
-                                  isSelected: hadSex,
-                                  onTap: () => setModalState(() => hadSex = !hadSex),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _HabitPill(
-                                  label: 'Masturbate',
-                                  icon: CupertinoIcons.hand_raised_fill,
-                                  isSelected: didMasturbate,
-                                  onTap: () => setModalState(() => didMasturbate = !didMasturbate),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Row 2: Physical & Substance Habits
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _HabitPill(
-                                  label: 'Workout',
-                                  icon: Icons.fitness_center_rounded,
-                                  isSelected: exercise,
-                                  onTap: () => setModalState(() => exercise = !exercise),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _HabitPill(
-                                  label: 'Alcohol',
-                                  icon: Icons
-                                      .local_bar_rounded, // Material icon retained (best match)
-                                  isSelected: alcoholIntake,
-                                  onTap: () => setModalState(() => alcoholIntake = !alcoholIntake),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _HabitPill(
-                                  label: 'Caffeine',
-                                  icon: Icons.coffee_rounded, // Material icon retained (best match)
-                                  isSelected: caffeineIntake,
-                                  onTap: () =>
-                                      setModalState(() => caffeineIntake = !caffeineIntake),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 26),
-
-                          // Save Button
-                          FilledButton(
-                            onPressed: () {
-                              String calculatedSexActivity;
-                              if (hadSex && didMasturbate) {
-                                calculatedSexActivity = 'Both';
-                              } else if (hadSex) {
-                                calculatedSexActivity = 'Sex';
-                              } else if (didMasturbate) {
-                                calculatedSexActivity = 'Masturbation';
-                              } else {
-                                calculatedSexActivity = 'None';
-                              }
-
-                              _saveLog(
-                                date,
-                                emoji: selectedEmoji,
-                                sleep: sleepModel.sleepHours,
-                                stress: stressLevel,
-                                exercise: exercise ? 'Yes' : 'No',
-                                alcoholIntake: alcoholIntake ? 'Yes' : 'No',
-                                caffeineIntake: caffeineIntake ? 'Yes' : 'No',
-                                sexualActivity: calculatedSexActivity,
-                              );
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Save Record'),
-                          ),
-                        ],
-                      ),
-                    ),
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 20 * (1 - value)),
+                    child: child,
                   ),
                 );
               },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white24 : Colors.black12,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              DateFormat('EEEE, MMM d').format(date).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                letterSpacing: 0.8,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          if (existingLog != null)
+                            IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(CupertinoIcons.trash,
+                                  color: Colors.redAccent, size: 18),
+                              onPressed: () async {
+                                await _removeLog(date);
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Did you wake up with morning wood?',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(CupertinoIcons.clock_fill,
+                              size: 14, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Log all inputs based on the past 24 hours',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white60 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _YesNoCard(
+                              title: 'YES',
+                              emoji: '🍆',
+                              isSelected: selectedEmoji == '🍆',
+                              activeColor: theme.colorScheme.primary,
+                              onTap: () => setModalState(() => selectedEmoji = '🍆'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _YesNoCard(
+                              title: 'NO',
+                              emoji: '😔',
+                              isSelected: selectedEmoji == '😔',
+                              activeColor: const Color(0xFF64748B),
+                              onTap: () => setModalState(() => selectedEmoji = '😔'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Sleep Duration',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          Text(
+                            '${sleepHours.toStringAsFixed(1)} hrs',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        min: 1,
+                        max: 12,
+                        divisions: 22,
+                        value: sleepHours.clamp(1.0, 12.0),
+                        onChanged: (val) {
+                          setModalState(() => sleepHours = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Stress Level (Past 24h)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      SegmentedButton<String>(
+                        style: _customSegmentedStyle(context),
+                        segments: const [
+                          ButtonSegment(
+                              value: 'Low',
+                              label: Text('Low', style: TextStyle(fontWeight: FontWeight.w600))),
+                          ButtonSegment(
+                              value: 'Medium',
+                              label: Text('Medium', style: TextStyle(fontWeight: FontWeight.w600))),
+                          ButtonSegment(
+                              value: 'High',
+                              label: Text('High', style: TextStyle(fontWeight: FontWeight.w600))),
+                        ],
+                        selected: {stressLevel},
+                        onSelectionChanged: (set) => setModalState(() => stressLevel = set.first),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Lifestyle Habits (Past 24h)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Sex',
+                              icon: CupertinoIcons.heart_fill,
+                              isSelected: hadSex,
+                              onTap: () => setModalState(() => hadSex = !hadSex),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Masturbate',
+                              icon: CupertinoIcons.hand_raised_fill,
+                              isSelected: didMasturbate,
+                              onTap: () => setModalState(() => didMasturbate = !didMasturbate),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Workout',
+                              icon: CupertinoIcons.heart_fill,
+                              isSelected: exercise,
+                              onTap: () => setModalState(() => exercise = !exercise),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Alcohol',
+                              icon: Icons.local_bar_rounded,
+                              isSelected: alcoholIntake,
+                              onTap: () => setModalState(() => alcoholIntake = !alcoholIntake),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Caffeine',
+                              icon: Icons.coffee_rounded,
+                              isSelected: caffeineIntake,
+                              onTap: () => setModalState(() => caffeineIntake = !caffeineIntake),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 26),
+                      FilledButton(
+                        onPressed: () {
+                          String calculatedSexActivity;
+                          if (hadSex && didMasturbate) {
+                            calculatedSexActivity = 'Both';
+                          } else if (hadSex) {
+                            calculatedSexActivity = 'Sex';
+                          } else if (didMasturbate) {
+                            calculatedSexActivity = 'Masturbation';
+                          } else {
+                            calculatedSexActivity = 'None';
+                          }
+
+                          _saveLog(
+                            date,
+                            emoji: selectedEmoji,
+                            sleep: sleepHours,
+                            stress: stressLevel,
+                            exercise: exercise ? 'Yes' : 'No',
+                            alcoholIntake: alcoholIntake ? 'Yes' : 'No',
+                            caffeineIntake: caffeineIntake ? 'Yes' : 'No',
+                            sexualActivity: calculatedSexActivity,
+                          );
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Save Record'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             );
           },
         );
@@ -400,7 +373,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  // Segmented Button Theme Helper
   ButtonStyle _customSegmentedStyle(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -430,6 +402,17 @@ class _CalendarPageState extends State<CalendarPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final monthLogs = _getMonthLogs(_focusedDay);
+    final monthYes = monthLogs.where((l) => l.emoji == '🍆').length;
+    final monthNo = monthLogs.where((l) => l.emoji == '😔').length;
+    final monthTotal = monthYes + monthNo;
+    final monthRate = monthTotal == 0 ? 0.0 : (monthYes / monthTotal);
+    final monthAvgSleep = monthLogs.isEmpty
+        ? 0.0
+        : (monthLogs.fold<double>(0, (sum, l) => sum + l.sleepHours) / monthLogs.length);
+
+    final selectedLog = _selectedDay != null ? _logs[_normalizeDate(_selectedDay!)] : null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sunrise Signal'),
@@ -446,100 +429,315 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-              ),
-            ),
-            child: TableCalendar(
-              firstDay: DateTime(2023),
-              lastDay: DateTime(2030),
-              focusedDay: _focusedDay,
-              currentDay: DateTime.now(),
-              calendarFormat: CalendarFormat.month,
-              startingDayOfWeek: StartingDayOfWeek.monday,
-              headerStyle: const HeaderStyle(
-                formatButtonVisible: false,
-                titleCentered: true,
-                titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                leftChevronIcon: Icon(Icons.chevron_left, size: 20),
-                rightChevronIcon: Icon(Icons.chevron_right, size: 20),
-              ),
-              calendarStyle: CalendarStyle(
-                outsideDaysVisible: false,
-                todayDecoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                todayTextStyle: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-                selectedDecoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  shape: BoxShape.circle,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Calendar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                 ),
               ),
-              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-              onDaySelected: (selectedDay, focusedDay) {
-                final normalizedSelectedDay = _normalizeDate(selectedDay);
-                final normalizedToday = _normalizeDate(DateTime.now());
-
-                if (normalizedSelectedDay.isAfter(normalizedToday)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      content: Text('Cannot log entries for future dates.'),
-                    ),
-                  );
-                  return;
-                }
-
-                setState(() {
-                  _selectedDay = selectedDay;
-                  _focusedDay = focusedDay;
-                });
-
-                _logEntryBottomSheet(selectedDay);
-              },
-              eventLoader: (date) {
-                final normalized = _normalizeDate(date);
-                if (_logs.containsKey(normalized)) {
-                  return [_logs[normalized]!.emoji];
-                }
-                return [];
-              },
-              calendarBuilders: CalendarBuilders(
-                markerBuilder: (context, date, events) {
-                  if (events.isEmpty) return null;
-                  return Positioned(
-                    bottom: 4,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.elasticOut,
-                      builder: (context, scale, child) {
-                        return Transform.scale(
-                          scale: scale,
-                          child: Text(
-                            events.first.toString(),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        );
-                      },
-                    ),
-                  );
+              child: TableCalendar(
+                firstDay: DateTime(2023),
+                lastDay: DateTime(2030),
+                focusedDay: _focusedDay,
+                currentDay: DateTime.now(),
+                calendarFormat: CalendarFormat.month,
+                startingDayOfWeek: StartingDayOfWeek.monday,
+                headerStyle: const HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                  titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  leftChevronIcon: Icon(Icons.chevron_left, size: 20),
+                  rightChevronIcon: Icon(Icons.chevron_right, size: 20),
+                ),
+                calendarStyle: CalendarStyle(
+                  outsideDaysVisible: true,
+                  todayDecoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  todayTextStyle: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  selectedDecoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                onPageChanged: (focusedDay) {
+                  setState(() {
+                    _focusedDay = focusedDay;
+                  });
                 },
+                onDaySelected: (selectedDay, focusedDay) {
+                  final normalizedSelectedDay = _normalizeDate(selectedDay);
+                  final normalizedToday = _normalizeDate(DateTime.now());
+
+                  if (normalizedSelectedDay.isAfter(normalizedToday)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        behavior: SnackBarBehavior.floating,
+                        content: Text('Cannot log entries for future dates.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+
+                  _logEntryBottomSheet(selectedDay);
+                },
+                eventLoader: (date) {
+                  final normalized = _normalizeDate(date);
+                  if (_logs.containsKey(normalized)) {
+                    return [_logs[normalized]!.emoji];
+                  }
+                  return [];
+                },
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    if (events.isEmpty) return null;
+                    return Positioned(
+                      bottom: 4,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.elasticOut,
+                        builder: (context, scale, child) {
+                          return Transform.scale(
+                            scale: scale,
+                            child: Text(
+                              events.first.toString(),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+
+            // 1. MONTHLY OVERVIEW SNAPSHOT (WITH ANIMATED SWITCHER)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Container(
+                key: ValueKey('month_${_focusedDay.year}_${_focusedDay.month}'),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${DateFormat('MMMM yyyy').format(_focusedDay)} Snapshot',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          monthTotal == 0
+                              ? '0% rate'
+                              : '${(monthRate * 100).toStringAsFixed(0)}% rate',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: monthRate,
+                        minHeight: 6,
+                        backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // 3 Rebalanced Pills (Present, Absent, Avg Sleep)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMonthStatPill(
+                            'Present',
+                            '$monthYes',
+                            '🍆',
+                            theme.colorScheme.primary,
+                            isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMonthStatPill(
+                            'Absent',
+                            '$monthNo',
+                            '😔',
+                            Colors.blueGrey,
+                            isDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMonthStatPill(
+                            'Avg Sleep',
+                            '${monthAvgSleep.toStringAsFixed(1)}h',
+                            '😴',
+                            const Color(0xFF38BDF8),
+                            isDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 2. SELECTED DAY INSPECTOR (SMOOTH SLIDE & FADE)
+            if (_selectedDay != null)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  key: ValueKey('day_${_selectedDay!.toIso8601String()}'),
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat('EEEE, MMM d').format(_selectedDay!),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          InkWell(
+                            onTap: () => _logEntryBottomSheet(_selectedDay!),
+                            child: Text(
+                              selectedLog != null ? 'Edit Log' : 'Add Log',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (selectedLog == null)
+                        Text(
+                          'No record logged for this day. Tap to add your morning status.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? Colors.white54 : Colors.black54,
+                          ),
+                        )
+                      else
+                        Row(
+                          children: [
+                            Text(selectedLog.emoji, style: const TextStyle(fontSize: 26)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    selectedLog.emoji == '🍆'
+                                        ? 'Morning Wood Present'
+                                        : 'No Morning Wood Reported',
+                                    style:
+                                        const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${selectedLog.sleepHours.toStringAsFixed(1)} hrs sleep • Stress: ${selectedLog.stressLevel ?? "Low"}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white60 : Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthStatPill(String label, String value, String icon, Color color, bool isDark) {
+    return _BouncingButton(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+              ),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white60 : Colors.black54,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -697,7 +895,7 @@ class _HabitPill extends StatelessWidget {
                 icon,
                 size: 20,
                 color: isSelected
-                    ? theme.colorScheme.primary
+                    ? (isDark ? Colors.white : theme.colorScheme.primary)
                     : (isDark ? Colors.white38 : Colors.black38),
               ),
             ),
@@ -708,7 +906,7 @@ class _HabitPill extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? theme.colorScheme.primary
+                    ? (isDark ? Colors.white : theme.colorScheme.primary)
                     : (isDark ? Colors.white70 : Colors.black87),
               ),
             ),
