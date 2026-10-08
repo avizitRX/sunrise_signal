@@ -86,7 +86,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         .where((e) => e.sexualActivity == 'Masturbation' || e.sexualActivity == 'Both')
         .length;
 
-    final insights = _generateHumorousInsights(filteredLogs, avgSleep);
+    final insights = _generateAccurateInsights(filteredLogs, avgSleep);
 
     return _AnalyticsData(
       filteredLogs: filteredLogs,
@@ -103,15 +103,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  List<_SimpleInsight> _generateHumorousInsights(List<LogModel> entries, double avgSleep) {
+  // ---------------------------------------------------------------------------
+  // CLINICAL & ACCURATE INSIGHT GENERATOR (No Humor)
+  // ---------------------------------------------------------------------------
+  List<_SimpleInsight> _generateAccurateInsights(List<LogModel> entries, double avgSleep) {
     final insights = <_SimpleInsight>[];
 
     if (entries.length < 3) {
       insights.add(
         const _SimpleInsight(
-          title: 'Not enough data yet 🕵️‍♂️',
+          title: 'Insufficient Data',
           message:
-              'Our diagnostic engines need at least 3-5 days in this timeframe to figure out what makes your morning engine purr.',
+              'Log entries for at least 3-5 days in this timeframe to generate meaningful correlation patterns.',
           icon: CupertinoIcons.sparkles,
           type: _InsightType.info,
         ),
@@ -126,7 +129,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       return (subset.length, (yes / subset.length) * 100);
     }
 
-    // 1. Sleep
+    // 1. SLEEP DURATION CORRELATION
     final sleep7Plus = getRate((e) => e.sleepHours >= 7.0);
     final sleepUnder7 = getRate((e) => e.sleepHours < 7.0);
 
@@ -135,90 +138,102 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       if (diff >= 10) {
         insights.add(
           _SimpleInsight(
-            title: 'Sleep is your secret superpower 🛌',
+            title: 'Sleep Duration Correlation',
             message:
-                'Your testosterone factory works night shifts! You saluted ${sleep7Plus.$2.toStringAsFixed(0)}% of mornings with 7+ hours of sleep, vs only ${sleepUnder7.$2.toStringAsFixed(0)}% when short on sleep.',
+                'Morning erections were recorded on ${sleep7Plus.$2.toStringAsFixed(0)}% of nights with ≥7 hours of sleep, compared to ${sleepUnder7.$2.toStringAsFixed(0)}% on shorter sleep.',
             icon: CupertinoIcons.moon_stars_fill,
             type: _InsightType.positive,
+          ),
+        );
+      } else if (diff <= -10) {
+        insights.add(
+          _SimpleInsight(
+            title: 'Sleep Duration Observation',
+            message:
+                'Morning erections occurred on ${sleepUnder7.$2.toStringAsFixed(0)}% of short-sleep nights versus ${sleep7Plus.$2.toStringAsFixed(0)}% on longer nights. Sleep consistency remains key for recovery.',
+            icon: CupertinoIcons.moon_stars_fill,
+            type: _InsightType.info,
           ),
         );
       }
     }
 
-    // 2. Workout
+    // 2. EXERCISE & PHYSICAL ACTIVITY
     final workout = getRate((e) => e.exercise == 'Yes');
     final noWorkout = getRate((e) => e.exercise == 'No');
 
     if (workout != null && noWorkout != null && (workout.$2 - noWorkout.$2) >= 8) {
       insights.add(
         _SimpleInsight(
-          title: 'Pumping iron = Pumping blood 🏋️‍♂️',
+          title: 'Physical Activity Impact',
           message:
-              'Working out pushed your morning signals up to ${workout.$2.toStringAsFixed(0)}% (vs ${noWorkout.$2.toStringAsFixed(0)}% on rest days). The plumbing approves.',
+              'Exercise days correlate with a higher morning erection frequency of ${workout.$2.toStringAsFixed(0)}%, compared to ${noWorkout.$2.toStringAsFixed(0)}% on rest days.',
           icon: CupertinoIcons.heart_fill,
           type: _InsightType.positive,
         ),
       );
     }
 
-    // 3. Sexual Activity
+    // 3. SEXUAL ACTIVITY (SEX)
     final hadSex = getRate((e) => e.sexualActivity == 'Sex' || e.sexualActivity == 'Both');
-    final hadMasturbate =
-        getRate((e) => e.sexualActivity == 'Masturbation' || e.sexualActivity == 'Both');
     final hadNeither = getRate((e) => e.sexualActivity == 'None' || e.sexualActivity == null);
 
     if (hadSex != null && hadNeither != null) {
       insights.add(
         _SimpleInsight(
-          title: 'The Post-Game Report ❤️',
+          title: 'Partner Sexual Activity',
           message:
-              'Partner sex led to a ${hadSex.$2.toStringAsFixed(0)}% morning wake-up call (compared to ${hadNeither.$2.toStringAsFixed(0)}% during downtime). System recovery is functioning as intended.',
+              'Following sexual activity within 24 hours, morning erections occurred on ${hadSex.$2.toStringAsFixed(0)}% of mornings (versus ${hadNeither.$2.toStringAsFixed(0)}% on inactive days).',
           icon: CupertinoIcons.heart_fill,
           type: _InsightType.info,
         ),
       );
     }
 
+    // 4. SEXUAL ACTIVITY (MASTURBATION)
+    final hadMasturbate =
+        getRate((e) => e.sexualActivity == 'Masturbation' || e.sexualActivity == 'Both');
+
     if (hadMasturbate != null && hadNeither != null) {
       final isHurting = (hadNeither.$2 - hadMasturbate.$2) >= 15;
       insights.add(
         _SimpleInsight(
-          title: isHurting ? 'Solo mission tax ✋' : 'Solo flight confirmed ✈️',
+          title: 'Solo Sexual Activity',
           message: isHurting
-              ? 'Flying solo pulled morning responses down to ${hadMasturbate.$2.toStringAsFixed(0)}% (vs ${hadNeither.$2.toStringAsFixed(0)}% on rest days). Classic biological cooldown.'
-              : 'Solo activity maintains an even ${hadMasturbate.$2.toStringAsFixed(0)}% morning rate. Standard reload speed.',
+              ? 'Masturbation in the past 24 hours is associated with a lower morning occurrence rate of ${hadMasturbate.$2.toStringAsFixed(0)}% (compared to ${hadNeither.$2.toStringAsFixed(0)}% on rest days).'
+              : 'Masturbation shows a stable occurrence rate of ${hadMasturbate.$2.toStringAsFixed(0)}% for morning erections.',
           icon: CupertinoIcons.hand_raised_fill,
           type: isHurting ? _InsightType.warning : _InsightType.info,
         ),
       );
     }
 
-    // 4. Alcohol
+    // 5. ALCOHOL INTAKE
     final drankAlcohol = getRate((e) => e.alcoholIntake == 'Yes');
     final noAlcohol = getRate((e) => e.alcoholIntake == 'No');
 
     if (drankAlcohol != null && noAlcohol != null && (noAlcohol.$2 - drankAlcohol.$2) >= 10) {
       insights.add(
         _SimpleInsight(
-          title: 'Whiskey dick is real 🍺',
+          title: 'Alcohol Consumption Impact',
           message:
-              'Alcohol dropped your morning readiness down to ${drankAlcohol.$2.toStringAsFixed(0)}% (vs ${noAlcohol.$2.toStringAsFixed(0)}% without drinks). Booze snoozed your alarm.',
+              'Alcohol intake is associated with a reduction in morning erections to ${drankAlcohol.$2.toStringAsFixed(0)}% (compared to ${noAlcohol.$2.toStringAsFixed(0)}% on alcohol-free days).',
           icon: Icons.local_bar_rounded,
           type: _InsightType.warning,
         ),
       );
     }
 
-    // 5. Stress
+    // 6. STRESS LEVEL
     final lowStress = getRate((e) => e.stressLevel == 'Low');
     final highStress = getRate((e) => e.stressLevel == 'High');
 
     if (lowStress != null && highStress != null && (lowStress.$2 - highStress.$2) >= 10) {
       insights.add(
         _SimpleInsight(
-          title: 'Cortisol is the ultimate mood killer 🧘‍♂️',
+          title: 'Stress Level Correlation',
           message:
-              'Stress hijacked your mornings down to ${highStress.$2.toStringAsFixed(0)}% (vs ${lowStress.$2.toStringAsFixed(0)}% when chill). Your nerves are taking up all the bandwidth.',
+              'High reported stress correlates with lower morning erection frequency (${highStress.$2.toStringAsFixed(0)}%), compared to ${lowStress.$2.toStringAsFixed(0)}% on low-stress days.',
           icon: CupertinoIcons.exclamationmark_triangle_fill,
           type: _InsightType.warning,
         ),
@@ -228,11 +243,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     return insights;
   }
 
-  String _getHumorousStatus(double rate) {
-    if (rate >= 75) return 'Flagpole is on active duty 🫡';
-    if (rate >= 50) return 'Healthy biological radio signal 📡';
-    if (rate >= 25) return 'Battery saver mode active 🪫';
-    return 'Dormant volcano status 🌋';
+  // Objective Status Header
+  String _getObjectiveStatus(double rate) {
+    if (rate >= 75) return 'Optimal frequency range (≥75%)';
+    if (rate >= 50) return 'Moderate frequency range (50-74%)';
+    if (rate >= 25) return 'Lower frequency range (25-49%)';
+    return 'Low frequency range (<25%)';
   }
 
   Future<void> _pickCustomRange() async {
@@ -291,7 +307,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Signal Analytics'),
+            title: const Text('Analytics'),
           ),
           body: AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
@@ -328,7 +344,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _getHumorousStatus(successRate),
+                        _getObjectiveStatus(successRate),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
