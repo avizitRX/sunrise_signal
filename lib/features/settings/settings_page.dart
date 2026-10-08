@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sunrise_signal/providers/providers/settings_provider.dart';
 
 import '../../models/log_model.dart';
 import '../../providers/log_provider.dart';
@@ -109,14 +110,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     setState(() => _isAuthenticating = false);
-  }
-
-  Future<void> _setWeekendMode(String mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('weekend_mode', mode);
-    setState(() => _selectedWeekend = mode);
-    HapticFeedback.selectionClick();
-    _showToast('Weekend schedule set to $mode');
   }
 
   // --- PASSCODE ---
@@ -262,12 +255,12 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               _buildDivider(isDark),
               _buildSettingTile(
-                icon: CupertinoIcons.calendar_badge_plus,
+                icon: CupertinoIcons.calendar,
                 iconColor: const Color(0xFF38BDF8),
-                title: 'Weekend Schedule',
-                subtitle: _selectedWeekend,
+                title: 'First Day of Week',
+                subtitle: Provider.of<SettingsProvider>(context).firstDayOfWeek,
                 trailing: const Icon(CupertinoIcons.chevron_forward, size: 16),
-                onTap: () => _showWeekendPicker(context, isDark),
+                onTap: () => _showFirstDayPicker(context),
               ),
             ],
           ),
@@ -384,14 +377,16 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   // --- WEEKEND SCHEDULE DIALOG ---
-  void _showWeekendPicker(BuildContext context, bool isDark) {
+  void _showFirstDayPicker(BuildContext context) {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    final options = ['Monday', 'Sunday', 'Saturday'];
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        final options = ['Sat & Sun', 'Fri & Sat', 'Sun Only'];
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -400,26 +395,27 @@ class _SettingsPageState extends State<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Select Weekend Days',
+                  'First Day of Week',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'These days will be highlighted as rest days on your calendar.',
+                  'Choose which day your calendar columns begin with.',
                   style: TextStyle(fontSize: 13, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 ...options.map((opt) {
-                  final isSelected = opt == _selectedWeekend;
+                  final isSelected = opt == settingsProvider.firstDayOfWeek;
                   return ListTile(
                     title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w600)),
                     trailing: isSelected
                         ? Icon(CupertinoIcons.checkmark_alt,
                             color: Theme.of(context).colorScheme.primary)
                         : null,
-                    onTap: () {
-                      _setWeekendMode(opt);
-                      Navigator.pop(context);
+                    onTap: () async {
+                      await settingsProvider.setFirstDayOfWeek(opt);
+                      HapticFeedback.selectionClick();
+                      if (context.mounted) Navigator.pop(context);
                     },
                   );
                 }),

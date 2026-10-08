@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:sunrise_signal/providers/providers/settings_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../providers/log_provider.dart';
@@ -329,11 +330,13 @@ class _CalendarPageState extends State<CalendarPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // Listen to settings for dynamic weekend days
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+
     return Consumer<LogProvider>(
       builder: (context, logProvider, _) {
         final logs = logProvider.logs;
 
-        // Compute Month Stats directly from provider
         final monthLogs = logs.entries
             .where((e) => e.key.year == _focusedDay.year && e.key.month == _focusedDay.month)
             .map((e) => e.value)
@@ -368,7 +371,7 @@ class _CalendarPageState extends State<CalendarPage> {
           body: SingleChildScrollView(
             child: Column(
               children: [
-                // Calendar
+                // Calendar Container
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
@@ -384,7 +387,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     focusedDay: _focusedDay,
                     currentDay: DateTime.now(),
                     calendarFormat: CalendarFormat.month,
-                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    startingDayOfWeek: settingsProvider.startingDayOfWeek,
                     headerStyle: const HeaderStyle(
                       formatButtonVisible: false,
                       titleCentered: true,
@@ -441,28 +444,6 @@ class _CalendarPageState extends State<CalendarPage> {
                       }
                       return [];
                     },
-                    calendarBuilders: CalendarBuilders(
-                      markerBuilder: (context, date, events) {
-                        if (events.isEmpty) return null;
-                        return Positioned(
-                          bottom: 4,
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.elasticOut,
-                            builder: (context, scale, child) {
-                              return Transform.scale(
-                                scale: scale,
-                                child: Text(
-                                  events.first.toString(),
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
                   ),
                 ),
 
@@ -682,7 +663,7 @@ class _CalendarPageState extends State<CalendarPage> {
 }
 
 // ---------------------------------------------------------
-// MICRO-INTERACTION WRAPPERS
+// REUSABLE COMPONENTS
 // ---------------------------------------------------------
 class _BouncingButton extends StatefulWidget {
   final Widget child;

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import 'package:sunrise_signal/features/lock/lock_screen.dart';
 import 'package:sunrise_signal/providers/log_provider.dart';
+import 'package:sunrise_signal/providers/providers/settings_provider.dart';
 import 'package:sunrise_signal/services/reminder_service.dart';
 import 'package:sunrise_signal/services/theme_service.dart';
 import 'package:sunrise_signal/theme/app_theme.dart';
@@ -26,6 +27,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SleepModel()),
         ChangeNotifierProvider(create: (_) => themeService),
         ChangeNotifierProvider(create: (_) => LogProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: const MyApp(),
     ),
