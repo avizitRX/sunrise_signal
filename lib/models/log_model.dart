@@ -5,6 +5,7 @@ class LogModel {
   String? exercise;
   String? alcoholIntake;
   String? caffeineIntake;
+  String? sexualActivity;
 
   LogModel({
     required this.emoji,
@@ -13,16 +14,18 @@ class LogModel {
     this.exercise,
     this.alcoholIntake,
     this.caffeineIntake,
+    this.sexualActivity,
   });
 
   factory LogModel.fromMap(Map<String, dynamic> map) {
     return LogModel(
       emoji: map['emoji'],
-      sleepHours: map['sleepHours'].toDouble(),
+      sleepHours: (map['sleepHours'] as num).toDouble(),
       stressLevel: map['stressLevel'],
       exercise: map['exercise'],
       alcoholIntake: map['alcoholIntake'],
       caffeineIntake: map['caffeineIntake'],
+      sexualActivity: map['sexualActivity'] ?? 'None',
     );
   }
 
@@ -34,6 +37,7 @@ class LogModel {
       'exercise': exercise,
       'alcoholIntake': alcoholIntake,
       'caffeineIntake': caffeineIntake,
+      'sexualActivity': sexualActivity,
     };
   }
 }

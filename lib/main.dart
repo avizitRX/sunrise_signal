@@ -4,6 +4,8 @@ import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import 'package:sunrise_signal/features/lock/lock_screen.dart';
 import 'package:sunrise_signal/services/reminder_service.dart';
 import 'package:sunrise_signal/services/theme_service.dart';
+import 'package:sunrise_signal/theme/app_theme.dart';
+
 import 'models/sleep_model.dart';
 import 'services/auth_service.dart';
 
@@ -42,22 +44,24 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sunrise Signal',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          brightness: Brightness.dark,
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: Colors.brown,
-          surfaceTintColor: Colors.brown,
-        ),
-      ),
+      // theme: ThemeData(
+      //   colorScheme: ColorScheme.fromSeed(
+      //     seedColor: Colors.red,
+      //     brightness: Brightness.light,
+      //   ),
+      // ),
+      // darkTheme: ThemeData(
+      //   colorScheme: ColorScheme.fromSeed(
+      //     seedColor: Colors.black,
+      //     brightness: Brightness.dark,
+      //   ),
+      //   bottomSheetTheme: const BottomSheetThemeData(
+      //     backgroundColor: Colors.brown,
+      //     surfaceTintColor: Colors.brown,
+      //   ),
+      // ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: Provider.of<ThemeService>(context, listen: true).isDarkMode
           ? ThemeMode.dark
           : ThemeMode.light,
