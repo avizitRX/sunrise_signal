@@ -37,7 +37,9 @@ class _CalendarPageState extends State<CalendarPage> {
     await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
   }
 
-  DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime.utc(date.year, date.month, date.day);
+  }
 
   void _logEntryBottomSheet(DateTime date) {
     final logProvider = Provider.of<LogProvider>(context, listen: false);

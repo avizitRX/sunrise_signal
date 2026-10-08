@@ -15,7 +15,10 @@ class LogProvider extends ChangeNotifier {
     loadLogs();
   }
 
-  DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  // Constructs a strict UTC midnight date: 2026-10-01 00:00:00.000Z
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime.utc(date.year, date.month, date.day);
+  }
 
   Future<void> loadLogs() async {
     _isLoading = true;
