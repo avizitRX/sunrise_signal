@@ -2,10 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-import '../../models/log_model.dart';
-import '../../services/secure_storage_service.dart';
+import '../../providers/log_provider.dart';
 import '../analytics/analytics_page.dart';
 import '../settings/settings_page.dart';
 
@@ -17,8 +17,6 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  final SecureStorageService _storageService = SecureStorageService();
-  Map<DateTime, LogModel> _logs = {};
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
@@ -26,15 +24,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     super.initState();
     _selectedDay = _normalizeDate(_focusedDay);
-    _loadLogs();
     _notificationInitialization();
-  }
-
-  Future<void> _loadLogs() async {
-    final logs = await _storageService.loadLogs();
-    setState(() {
-      _logs = logs;
-    });
   }
 
   Future<void> _notificationInitialization() async {
@@ -48,47 +38,9 @@ class _CalendarPageState extends State<CalendarPage> {
 
   DateTime _normalizeDate(DateTime date) => DateTime(date.year, date.month, date.day);
 
-  Future<void> _saveLog(
-    DateTime date, {
-    required String emoji,
-    required double sleep,
-    String? stress,
-    String? exercise,
-    String? alcoholIntake,
-    String? caffeineIntake,
-    String? sexualActivity,
-  }) async {
-    final normalized = _normalizeDate(date);
-    _logs[normalized] = LogModel(
-      emoji: emoji,
-      sleepHours: sleep,
-      stressLevel: stress,
-      exercise: exercise,
-      alcoholIntake: alcoholIntake,
-      caffeineIntake: caffeineIntake,
-      sexualActivity: sexualActivity,
-    );
-    await _storageService.saveLogs(_logs);
-    setState(() {});
-  }
-
-  Future<void> _removeLog(DateTime date) async {
-    final normalized = _normalizeDate(date);
-    _logs.remove(normalized);
-    await _storageService.saveLogs(_logs);
-    setState(() {});
-  }
-
-  List<LogModel> _getMonthLogs(DateTime month) {
-    return _logs.entries
-        .where((e) => e.key.year == month.year && e.key.month == month.month)
-        .map((e) => e.value)
-        .toList();
-  }
-
   void _logEntryBottomSheet(DateTime date) {
-    final normalized = _normalizeDate(date);
-    final existingLog = _logs[normalized];
+    final logProvider = Provider.of<LogProvider>(context, listen: false);
+    final existingLog = logProvider.getLogForDate(date);
 
     double sleepHours = existingLog?.sleepHours ?? 7.0;
     String selectedEmoji = existingLog?.emoji ?? '🍆';
@@ -108,7 +60,7 @@ class _CalendarPageState extends State<CalendarPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF161F2E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -177,7 +129,7 @@ class _CalendarPageState extends State<CalendarPage> {
                               icon: const Icon(CupertinoIcons.trash,
                                   color: Colors.redAccent, size: 18),
                               onPressed: () async {
-                                await _removeLog(date);
+                                await logProvider.removeLog(date);
                                 if (context.mounted) Navigator.pop(context);
                               },
                             ),
@@ -263,7 +215,6 @@ class _CalendarPageState extends State<CalendarPage> {
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       SegmentedButton<String>(
-                        style: _customSegmentedStyle(context),
                         segments: const [
                           ButtonSegment(
                               value: 'Low',
@@ -336,7 +287,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       ),
                       const SizedBox(height: 26),
                       FilledButton(
-                        onPressed: () {
+                        onPressed: () async {
                           String calculatedSexActivity;
                           if (hadSex && didMasturbate) {
                             calculatedSexActivity = 'Both';
@@ -348,7 +299,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             calculatedSexActivity = 'None';
                           }
 
-                          _saveLog(
+                          await logProvider.saveLog(
                             date,
                             emoji: selectedEmoji,
                             sleep: sleepHours,
@@ -358,7 +309,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             caffeineIntake: caffeineIntake ? 'Yes' : 'No',
                             sexualActivity: calculatedSexActivity,
                           );
-                          Navigator.pop(context);
+                          if (context.mounted) Navigator.pop(context);
                         },
                         child: const Text('Save Record'),
                       ),
@@ -373,334 +324,321 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  ButtonStyle _customSegmentedStyle(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return theme.colorScheme.primary;
-        }
-        return isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-      }),
-      foregroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return Colors.white;
-        }
-        return isDark ? Colors.white70 : Colors.black87;
-      }),
-      side: WidgetStateProperty.all(BorderSide.none),
-      shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final monthLogs = _getMonthLogs(_focusedDay);
-    final monthYes = monthLogs.where((l) => l.emoji == '🍆').length;
-    final monthNo = monthLogs.where((l) => l.emoji == '😔').length;
-    final monthTotal = monthYes + monthNo;
-    final monthRate = monthTotal == 0 ? 0.0 : (monthYes / monthTotal);
-    final monthAvgSleep = monthLogs.isEmpty
-        ? 0.0
-        : (monthLogs.fold<double>(0, (sum, l) => sum + l.sleepHours) / monthLogs.length);
+    return Consumer<LogProvider>(
+      builder: (context, logProvider, _) {
+        final logs = logProvider.logs;
 
-    final selectedLog = _selectedDay != null ? _logs[_normalizeDate(_selectedDay!)] : null;
+        // Compute Month Stats directly from provider
+        final monthLogs = logs.entries
+            .where((e) => e.key.year == _focusedDay.year && e.key.month == _focusedDay.month)
+            .map((e) => e.value)
+            .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sunrise Signal'),
-        actions: [
-          IconButton(
-            icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
-            onPressed: () =>
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsPage())),
+        final monthYes = monthLogs.where((l) => l.emoji == '🍆').length;
+        final monthNo = monthLogs.where((l) => l.emoji == '😔').length;
+        final monthTotal = monthYes + monthNo;
+        final monthRate = monthTotal == 0 ? 0.0 : (monthYes / monthTotal);
+        final monthAvgSleep = monthLogs.isEmpty
+            ? 0.0
+            : (monthLogs.fold<double>(0, (sum, l) => sum + l.sleepHours) / monthLogs.length);
+
+        final selectedLog = _selectedDay != null ? logProvider.getLogForDate(_selectedDay!) : null;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Sunrise Signal'),
+            actions: [
+              IconButton(
+                icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
+                onPressed: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const AnalyticsPage())),
+              ),
+              IconButton(
+                icon: const Icon(CupertinoIcons.gear_alt_fill),
+                onPressed: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const SettingsPage())),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(CupertinoIcons.gear_alt_fill),
-            onPressed: () =>
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Calendar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                ),
-              ),
-              child: TableCalendar(
-                firstDay: DateTime(2023),
-                lastDay: DateTime(2030),
-                focusedDay: _focusedDay,
-                currentDay: DateTime.now(),
-                calendarFormat: CalendarFormat.month,
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                headerStyle: const HeaderStyle(
-                  formatButtonVisible: false,
-                  titleCentered: true,
-                  titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  leftChevronIcon: Icon(Icons.chevron_left, size: 20),
-                  rightChevronIcon: Icon(Icons.chevron_right, size: 20),
-                ),
-                calendarStyle: CalendarStyle(
-                  outsideDaysVisible: true,
-                  todayDecoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  todayTextStyle: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                onPageChanged: (focusedDay) {
-                  setState(() {
-                    _focusedDay = focusedDay;
-                  });
-                },
-                onDaySelected: (selectedDay, focusedDay) {
-                  final normalizedSelectedDay = _normalizeDate(selectedDay);
-                  final normalizedToday = _normalizeDate(DateTime.now());
-
-                  if (normalizedSelectedDay.isAfter(normalizedToday)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        behavior: SnackBarBehavior.floating,
-                        content: Text('Cannot log entries for future dates.'),
-                      ),
-                    );
-                    return;
-                  }
-
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-
-                  _logEntryBottomSheet(selectedDay);
-                },
-                eventLoader: (date) {
-                  final normalized = _normalizeDate(date);
-                  if (_logs.containsKey(normalized)) {
-                    return [_logs[normalized]!.emoji];
-                  }
-                  return [];
-                },
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    if (events.isEmpty) return null;
-                    return Positioned(
-                      bottom: 4,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.elasticOut,
-                        builder: (context, scale, child) {
-                          return Transform.scale(
-                            scale: scale,
-                            child: Text(
-                              events.first.toString(),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-            // 1. MONTHLY OVERVIEW SNAPSHOT (WITH ANIMATED SWITCHER)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: Container(
-                key: ValueKey('month_${_focusedDay.year}_${_focusedDay.month}'),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${DateFormat('MMMM yyyy').format(_focusedDay)} Snapshot',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          monthTotal == 0
-                              ? '0% rate'
-                              : '${(monthRate * 100).toStringAsFixed(0)}% rate',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: monthRate,
-                        minHeight: 6,
-                        backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    // 3 Rebalanced Pills (Present, Absent, Avg Sleep)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildMonthStatPill(
-                            'Present',
-                            '$monthYes',
-                            '🍆',
-                            theme.colorScheme.primary,
-                            isDark,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildMonthStatPill(
-                            'Absent',
-                            '$monthNo',
-                            '😔',
-                            Colors.blueGrey,
-                            isDark,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildMonthStatPill(
-                            'Avg Sleep',
-                            '${monthAvgSleep.toStringAsFixed(1)}h',
-                            '😴',
-                            const Color(0xFF38BDF8),
-                            isDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // 2. SELECTED DAY INSPECTOR (SMOOTH SLIDE & FADE)
-            if (_selectedDay != null)
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  key: ValueKey('day_${_selectedDay!.toIso8601String()}'),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Calendar
+                Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    color: isDark ? const Color(0xFF161F2E) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                      color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            DateFormat('EEEE, MMM d').format(_selectedDay!),
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  child: TableCalendar(
+                    firstDay: DateTime(2023),
+                    lastDay: DateTime(2030),
+                    focusedDay: _focusedDay,
+                    currentDay: DateTime.now(),
+                    calendarFormat: CalendarFormat.month,
+                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    headerStyle: const HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      leftChevronIcon: Icon(Icons.chevron_left, size: 20),
+                      rightChevronIcon: Icon(Icons.chevron_right, size: 20),
+                    ),
+                    calendarStyle: CalendarStyle(
+                      outsideDaysVisible: false,
+                      todayDecoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      todayTextStyle: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      selectedDecoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                    onPageChanged: (focusedDay) {
+                      setState(() {
+                        _focusedDay = focusedDay;
+                      });
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      final normalizedSelectedDay = _normalizeDate(selectedDay);
+                      final normalizedToday = _normalizeDate(DateTime.now());
+
+                      if (normalizedSelectedDay.isAfter(normalizedToday)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            behavior: SnackBarBehavior.floating,
+                            content: Text('Cannot log entries for future dates.'),
                           ),
-                          InkWell(
-                            onTap: () => _logEntryBottomSheet(_selectedDay!),
-                            child: Text(
-                              selectedLog != null ? 'Edit Log' : 'Add Log',
+                        );
+                        return;
+                      }
+
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+
+                      _logEntryBottomSheet(selectedDay);
+                    },
+                    eventLoader: (date) {
+                      final normalized = _normalizeDate(date);
+                      if (logs.containsKey(normalized)) {
+                        return [logs[normalized]!.emoji];
+                      }
+                      return [];
+                    },
+                    calendarBuilders: CalendarBuilders(
+                      markerBuilder: (context, date, events) {
+                        if (events.isEmpty) return null;
+                        return Positioned(
+                          bottom: 4,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.elasticOut,
+                            builder: (context, scale, child) {
+                              return Transform.scale(
+                                scale: scale,
+                                child: Text(
+                                  events.first.toString(),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // Month Snapshot Card
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    key: ValueKey('month_${_focusedDay.year}_${_focusedDay.month}_$monthTotal'),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${DateFormat('MMMM yyyy').format(_focusedDay)} Snapshot',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              monthTotal == 0
+                                  ? '0% rate'
+                                  : '${(monthRate * 100).toStringAsFixed(0)}% rate',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: theme.colorScheme.primary,
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: monthRate,
+                            minHeight: 6,
+                            backgroundColor:
+                                isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                            valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (selectedLog == null)
-                        Text(
-                          'No record logged for this day. Tap to add your morning status.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? Colors.white54 : Colors.black54,
-                          ),
-                        )
-                      else
+                        ),
+                        const SizedBox(height: 14),
                         Row(
                           children: [
-                            Text(selectedLog.emoji, style: const TextStyle(fontSize: 26)),
-                            const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    selectedLog.emoji == '🍆'
-                                        ? 'Morning Wood Present'
-                                        : 'No Morning Wood Reported',
-                                    style:
-                                        const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${selectedLog.sleepHours.toStringAsFixed(1)} hrs sleep • Stress: ${selectedLog.stressLevel ?? "Low"}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.white60 : Colors.black54,
-                                    ),
-                                  ),
-                                ],
+                              child: _buildMonthStatPill(
+                                'Present',
+                                '$monthYes',
+                                '🍆',
+                                theme.colorScheme.primary,
+                                isDark,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildMonthStatPill(
+                                'Absent',
+                                '$monthNo',
+                                '😔',
+                                Colors.blueGrey,
+                                isDark,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildMonthStatPill(
+                                'Avg Sleep',
+                                '${monthAvgSleep.toStringAsFixed(1)}h',
+                                '😴',
+                                const Color(0xFF38BDF8),
+                                isDark,
                               ),
                             ),
                           ],
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+                // Selected Day Inspector Card
+                if (_selectedDay != null)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      key: ValueKey('day_${_selectedDay!.toIso8601String()}_${selectedLog?.emoji}'),
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                DateFormat('EEEE, MMM d').format(_selectedDay!),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              InkWell(
+                                onTap: () => _logEntryBottomSheet(_selectedDay!),
+                                child: Text(
+                                  selectedLog != null ? 'Edit Log' : 'Add Log',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (selectedLog == null)
+                            Text(
+                              'No record logged for this day. Tap to add your morning status.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                              ),
+                            )
+                          else
+                            Row(
+                              children: [
+                                Text(selectedLog.emoji, style: const TextStyle(fontSize: 26)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        selectedLog.emoji == '🍆'
+                                            ? 'Morning Wood Present'
+                                            : 'No Morning Wood Reported',
+                                        style: const TextStyle(
+                                            fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${selectedLog.sleepHours.toStringAsFixed(1)} hrs sleep • Stress: ${selectedLog.stressLevel ?? "Low"}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.white60 : Colors.black54,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -744,7 +682,7 @@ class _CalendarPageState extends State<CalendarPage> {
 }
 
 // ---------------------------------------------------------
-// MICRO-INTERACTION WRAPPER (Scale Down On Tap)
+// MICRO-INTERACTION WRAPPERS
 // ---------------------------------------------------------
 class _BouncingButton extends StatefulWidget {
   final Widget child;
@@ -778,9 +716,6 @@ class _BouncingButtonState extends State<_BouncingButton> {
   }
 }
 
-// ---------------------------------------------------------
-// ANIMATED YES/NO TOGGLE CARDS
-// ---------------------------------------------------------
 class _YesNoCard extends StatelessWidget {
   final String title;
   final String emoji;
@@ -809,7 +744,7 @@ class _YesNoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? activeColor.withValues(alpha: 0.12)
-              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              : (isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? activeColor : Colors.transparent,
@@ -849,9 +784,6 @@ class _YesNoCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
-// ANIMATED HABIT PILL BUTTONS
-// ---------------------------------------------------------
 class _HabitPill extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -878,7 +810,7 @@ class _HabitPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primary.withValues(alpha: 0.15)
-              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+              : (isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? theme.colorScheme.primary : Colors.transparent,
@@ -895,7 +827,7 @@ class _HabitPill extends StatelessWidget {
                 icon,
                 size: 20,
                 color: isSelected
-                    ? (isDark ? Colors.white : theme.colorScheme.primary)
+                    ? theme.colorScheme.primary
                     : (isDark ? Colors.white38 : Colors.black38),
               ),
             ),
@@ -906,7 +838,7 @@ class _HabitPill extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? (isDark ? Colors.white : theme.colorScheme.primary)
+                    ? theme.colorScheme.primary
                     : (isDark ? Colors.white70 : Colors.black87),
               ),
             ),

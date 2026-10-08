@@ -2,9 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/log_model.dart';
-import '../../services/secure_storage_service.dart';
+import '../../providers/log_provider.dart';
 
 enum TimeFilter { sevenDays, thirtyDays, oneYear, custom }
 
@@ -16,47 +17,17 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  final SecureStorageService _storageService = SecureStorageService();
-  Map<DateTime, LogModel> _allLogs = {};
-  List<LogModel> _filteredLogs = [];
-  bool _isLoading = true;
-
   // Filter State
   TimeFilter _selectedFilter = TimeFilter.thirtyDays;
   DateTimeRange? _customRange;
 
-  // Counts & Stats
-  int _yesCount = 0;
-  int _noCount = 0;
-  double _averageSleep = 0.0;
-  int _exerciseCount = 0;
-  int _alcoholCount = 0;
-  int _caffeineCount = 0;
-  int _sexCount = 0;
-  int _masturbateCount = 0;
+  // Calculation Container
+  late _AnalyticsData _data;
 
-  final Map<String, int> _stressDistribution = {
-    'Low': 0,
-    'Medium': 0,
-    'High': 0,
-  };
-
-  final List<_SimpleInsight> _insights = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAllData();
-  }
-
-  Future<void> _loadAllData() async {
-    final logs = await _storageService.loadLogs();
-    if (!mounted) return;
-    _allLogs = logs;
-    _applyFilter();
-  }
-
-  void _applyFilter() {
+  // ---------------------------------------------------------------------------
+  // PURE CALCULATION ENGINE (No setState called inside!)
+  // ---------------------------------------------------------------------------
+  _AnalyticsData _computeData(Map<DateTime, LogModel> allLogs) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     DateTime startDate;
@@ -84,7 +55,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         break;
     }
 
-    _filteredLogs = _allLogs.entries
+    final filteredLogs = allLogs.entries
         .where((entry) {
           final d = entry.key;
           return d.isAfter(startDate.subtract(const Duration(seconds: 1))) && d.isBefore(endDate);
@@ -92,128 +63,116 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         .map((e) => e.value)
         .toList();
 
-    _computeStats();
-  }
+    final yesCount = filteredLogs.where((e) => e.emoji == '🍆').length;
+    final noCount = filteredLogs.where((e) => e.emoji == '😔').length;
 
-  void _computeStats() {
-    _yesCount = _filteredLogs.where((e) => e.emoji == '🍆').length;
-    _noCount = _filteredLogs.where((e) => e.emoji == '😔').length;
+    final avgSleep = filteredLogs.isNotEmpty
+        ? (filteredLogs.fold<double>(0.0, (sum, e) => sum + e.sleepHours) / filteredLogs.length)
+        : 0.0;
 
-    if (_filteredLogs.isNotEmpty) {
-      final totalSleep = _filteredLogs.fold<double>(0.0, (sum, e) => sum + e.sleepHours);
-      _averageSleep = totalSleep / _filteredLogs.length;
-    } else {
-      _averageSleep = 0.0;
-    }
-
-    _stressDistribution['Low'] = 0;
-    _stressDistribution['Medium'] = 0;
-    _stressDistribution['High'] = 0;
-
-    for (var log in _filteredLogs) {
-      if (log.stressLevel != null && _stressDistribution.containsKey(log.stressLevel)) {
-        _stressDistribution[log.stressLevel!] = _stressDistribution[log.stressLevel!]! + 1;
+    final stressMap = {'Low': 0, 'Medium': 0, 'High': 0};
+    for (var log in filteredLogs) {
+      if (log.stressLevel != null && stressMap.containsKey(log.stressLevel)) {
+        stressMap[log.stressLevel!] = stressMap[log.stressLevel!]! + 1;
       }
     }
 
-    _exerciseCount = _filteredLogs.where((e) => e.exercise == 'Yes').length;
-    _alcoholCount = _filteredLogs.where((e) => e.alcoholIntake == 'Yes').length;
-    _caffeineCount = _filteredLogs.where((e) => e.caffeineIntake == 'Yes').length;
-    _sexCount =
-        _filteredLogs.where((e) => e.sexualActivity == 'Sex' || e.sexualActivity == 'Both').length;
-    _masturbateCount = _filteredLogs
+    final exerciseCount = filteredLogs.where((e) => e.exercise == 'Yes').length;
+    final alcoholCount = filteredLogs.where((e) => e.alcoholIntake == 'Yes').length;
+    final caffeineCount = filteredLogs.where((e) => e.caffeineIntake == 'Yes').length;
+    final sexCount =
+        filteredLogs.where((e) => e.sexualActivity == 'Sex' || e.sexualActivity == 'Both').length;
+    final masturbateCount = filteredLogs
         .where((e) => e.sexualActivity == 'Masturbation' || e.sexualActivity == 'Both')
         .length;
 
-    _generateAccurateInsights();
+    final insights = _generateHumorousInsights(filteredLogs, avgSleep);
 
-    setState(() {
-      _isLoading = false;
-    });
+    return _AnalyticsData(
+      filteredLogs: filteredLogs,
+      yesCount: yesCount,
+      noCount: noCount,
+      avgSleep: avgSleep,
+      exerciseCount: exerciseCount,
+      alcoholCount: alcoholCount,
+      caffeineCount: caffeineCount,
+      sexCount: sexCount,
+      masturbateCount: masturbateCount,
+      stressMap: stressMap,
+      insights: insights,
+    );
   }
 
-  void _generateAccurateInsights() {
-    _insights.clear();
+  List<_SimpleInsight> _generateHumorousInsights(List<LogModel> entries, double avgSleep) {
+    final insights = <_SimpleInsight>[];
 
-    if (_filteredLogs.length < 3) {
-      _insights.add(
+    if (entries.length < 3) {
+      insights.add(
         const _SimpleInsight(
-          title: 'Collecting Data',
+          title: 'Not enough data yet 🕵️‍♂️',
           message:
-              'Log at least 3-5 days in this timeframe to generate meaningful correlation patterns.',
+              'Our diagnostic engines need at least 3-5 days in this timeframe to figure out what makes your morning engine purr.',
           icon: CupertinoIcons.sparkles,
           type: _InsightType.info,
         ),
       );
-      return;
+      return insights;
     }
 
     (int, double)? getRate(bool Function(LogModel) condition) {
-      final subset = _filteredLogs.where(condition).toList();
+      final subset = entries.where(condition).toList();
       if (subset.isEmpty) return null;
       final yes = subset.where((e) => e.emoji == '🍆').length;
       return (subset.length, (yes / subset.length) * 100);
     }
 
-    // 1. SLEEP
+    // 1. Sleep
     final sleep7Plus = getRate((e) => e.sleepHours >= 7.0);
     final sleepUnder7 = getRate((e) => e.sleepHours < 7.0);
 
     if (sleep7Plus != null && sleepUnder7 != null) {
       final diff = sleep7Plus.$2 - sleepUnder7.$2;
       if (diff >= 10) {
-        _insights.add(
+        insights.add(
           _SimpleInsight(
-            title: 'Sleep has a positive impact',
+            title: 'Sleep is your secret superpower 🛌',
             message:
-                'You wake up with morning wood ${sleep7Plus.$2.toStringAsFixed(0)}% of the time when sleeping ≥7 hours, vs only ${sleepUnder7.$2.toStringAsFixed(0)}% on shorter sleep.',
+                'Your testosterone factory works night shifts! You saluted ${sleep7Plus.$2.toStringAsFixed(0)}% of mornings with 7+ hours of sleep, vs only ${sleepUnder7.$2.toStringAsFixed(0)}% when short on sleep.',
             icon: CupertinoIcons.moon_stars_fill,
             type: _InsightType.positive,
-          ),
-        );
-      } else if (diff <= -10) {
-        _insights.add(
-          _SimpleInsight(
-            title: 'Sleep variation noticed',
-            message:
-                'Morning wood occurred on ${sleepUnder7.$2.toStringAsFixed(0)}% of short sleep nights vs ${sleep7Plus.$2.toStringAsFixed(0)}% on longer nights.',
-            icon: CupertinoIcons.moon_stars_fill,
-            type: _InsightType.info,
           ),
         );
       }
     }
 
-    // 2. EXERCISE
+    // 2. Workout
     final workout = getRate((e) => e.exercise == 'Yes');
     final noWorkout = getRate((e) => e.exercise == 'No');
 
-    if (workout != null && noWorkout != null) {
-      if (workout.$2 > noWorkout.$2 && (workout.$2 - noWorkout.$2) >= 8) {
-        _insights.add(
-          _SimpleInsight(
-            title: 'Workouts boost vitality',
-            message:
-                'Physical activity increases morning wood frequency to ${workout.$2.toStringAsFixed(0)}% (compared to ${noWorkout.$2.toStringAsFixed(0)}% on rest days).',
-            icon: CupertinoIcons.heart_fill,
-            type: _InsightType.positive,
-          ),
-        );
-      }
+    if (workout != null && noWorkout != null && (workout.$2 - noWorkout.$2) >= 8) {
+      insights.add(
+        _SimpleInsight(
+          title: 'Pumping iron = Pumping blood 🏋️‍♂️',
+          message:
+              'Working out pushed your morning signals up to ${workout.$2.toStringAsFixed(0)}% (vs ${noWorkout.$2.toStringAsFixed(0)}% on rest days). The plumbing approves.',
+          icon: CupertinoIcons.heart_fill,
+          type: _InsightType.positive,
+        ),
+      );
     }
 
-    // 3. SEXUAL ACTIVITY
+    // 3. Sexual Activity
     final hadSex = getRate((e) => e.sexualActivity == 'Sex' || e.sexualActivity == 'Both');
     final hadMasturbate =
         getRate((e) => e.sexualActivity == 'Masturbation' || e.sexualActivity == 'Both');
     final hadNeither = getRate((e) => e.sexualActivity == 'None' || e.sexualActivity == null);
 
     if (hadSex != null && hadNeither != null) {
-      _insights.add(
+      insights.add(
         _SimpleInsight(
-          title: 'Partner Sex Pattern',
+          title: 'The Post-Game Report ❤️',
           message:
-              'After partner sex, morning wood occurred on ${hadSex.$2.toStringAsFixed(0)}% of mornings (vs ${hadNeither.$2.toStringAsFixed(0)}% on days without sexual activity).',
+              'Partner sex led to a ${hadSex.$2.toStringAsFixed(0)}% morning wake-up call (compared to ${hadNeither.$2.toStringAsFixed(0)}% during downtime). System recovery is functioning as intended.',
           icon: CupertinoIcons.heart_fill,
           type: _InsightType.info,
         ),
@@ -222,53 +181,58 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
     if (hadMasturbate != null && hadNeither != null) {
       final isHurting = (hadNeither.$2 - hadMasturbate.$2) >= 15;
-      _insights.add(
+      insights.add(
         _SimpleInsight(
-          title: 'Masturbation Pattern',
+          title: isHurting ? 'Solo mission tax ✋' : 'Solo flight confirmed ✈️',
           message: isHurting
-              ? 'Masturbation in the past 24h shows a dip in morning erections to ${hadMasturbate.$2.toStringAsFixed(0)}% (vs ${hadNeither.$2.toStringAsFixed(0)}% on rest days).'
-              : 'Solo activity appears to have a stable ${hadMasturbate.$2.toStringAsFixed(0)}% morning wood occurrence rate.',
+              ? 'Flying solo pulled morning responses down to ${hadMasturbate.$2.toStringAsFixed(0)}% (vs ${hadNeither.$2.toStringAsFixed(0)}% on rest days). Classic biological cooldown.'
+              : 'Solo activity maintains an even ${hadMasturbate.$2.toStringAsFixed(0)}% morning rate. Standard reload speed.',
           icon: CupertinoIcons.hand_raised_fill,
           type: isHurting ? _InsightType.warning : _InsightType.info,
         ),
       );
     }
 
-    // 4. ALCOHOL
+    // 4. Alcohol
     final drankAlcohol = getRate((e) => e.alcoholIntake == 'Yes');
     final noAlcohol = getRate((e) => e.alcoholIntake == 'No');
 
-    if (drankAlcohol != null && noAlcohol != null) {
-      if (noAlcohol.$2 > drankAlcohol.$2 && (noAlcohol.$2 - drankAlcohol.$2) >= 10) {
-        _insights.add(
-          _SimpleInsight(
-            title: 'Alcohol disrupts morning frequency',
-            message:
-                'Morning wood rate dropped to ${drankAlcohol.$2.toStringAsFixed(0)}% after drinking alcohol, vs ${noAlcohol.$2.toStringAsFixed(0)}% on clean days.',
-            icon: Icons.local_bar_rounded,
-            type: _InsightType.warning,
-          ),
-        );
-      }
+    if (drankAlcohol != null && noAlcohol != null && (noAlcohol.$2 - drankAlcohol.$2) >= 10) {
+      insights.add(
+        _SimpleInsight(
+          title: 'Whiskey dick is real 🍺',
+          message:
+              'Alcohol dropped your morning readiness down to ${drankAlcohol.$2.toStringAsFixed(0)}% (vs ${noAlcohol.$2.toStringAsFixed(0)}% without drinks). Booze snoozed your alarm.',
+          icon: Icons.local_bar_rounded,
+          type: _InsightType.warning,
+        ),
+      );
     }
 
-    // 5. STRESS
+    // 5. Stress
     final lowStress = getRate((e) => e.stressLevel == 'Low');
     final highStress = getRate((e) => e.stressLevel == 'High');
 
-    if (lowStress != null && highStress != null) {
-      if (lowStress.$2 > highStress.$2 && (lowStress.$2 - highStress.$2) >= 10) {
-        _insights.add(
-          _SimpleInsight(
-            title: 'High stress suppresses mornings',
-            message:
-                'Low stress correlates with a ${lowStress.$2.toStringAsFixed(0)}% morning rate, dropping down to ${highStress.$2.toStringAsFixed(0)}% under high stress.',
-            icon: CupertinoIcons.exclamationmark_triangle_fill,
-            type: _InsightType.warning,
-          ),
-        );
-      }
+    if (lowStress != null && highStress != null && (lowStress.$2 - highStress.$2) >= 10) {
+      insights.add(
+        _SimpleInsight(
+          title: 'Cortisol is the ultimate mood killer 🧘‍♂️',
+          message:
+              'Stress hijacked your mornings down to ${highStress.$2.toStringAsFixed(0)}% (vs ${lowStress.$2.toStringAsFixed(0)}% when chill). Your nerves are taking up all the bandwidth.',
+          icon: CupertinoIcons.exclamationmark_triangle_fill,
+          type: _InsightType.warning,
+        ),
+      );
     }
+
+    return insights;
+  }
+
+  String _getHumorousStatus(double rate) {
+    if (rate >= 75) return 'Flagpole is on active duty 🫡';
+    if (rate >= 50) return 'Healthy biological radio signal 📡';
+    if (rate >= 25) return 'Battery saver mode active 🪫';
+    return 'Dormant volcano status 🌋';
   }
 
   Future<void> _pickCustomRange() async {
@@ -287,7 +251,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         _customRange = range;
         _selectedFilter = TimeFilter.custom;
       });
-      _applyFilter();
     }
   }
 
@@ -312,20 +275,34 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics'),
-      ),
-      body: _isLoading
-          ? const Center(child: CupertinoActivityIndicator())
-          : ListView(
+    return Consumer<LogProvider>(
+      builder: (context, logProvider, _) {
+        if (logProvider.isLoading) {
+          return const Scaffold(
+            body: Center(child: CupertinoActivityIndicator()),
+          );
+        }
+
+        // Pure calculation: Safe to run during build because it does NOT call setState!
+        _data = _computeData(logProvider.logs);
+
+        final total = _data.yesCount + _data.noCount;
+        final successRate = total == 0 ? 0.0 : (_data.yesCount / total) * 100;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Signal Analytics'),
+          ),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: ListView(
+              key: ValueKey('analytics_${_selectedFilter}_${_data.filteredLogs.length}'),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               children: [
-                // 1. TIMEFRAME SELECTOR
                 _buildTimeFilterBar(theme, isDark),
                 const SizedBox(height: 16),
 
-                // 2. MORNING WOOD PIE CHART
+                // Frequency Pie Chart
                 _buildCard(
                   isDark: isDark,
                   child: Column(
@@ -343,20 +320,29 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${_yesCount + _noCount} Days',
+                            '$total Days',
                             style: TextStyle(
                                 fontSize: 12, color: isDark ? Colors.white54 : Colors.black45),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _getHumorousStatus(successRate),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
                       const SizedBox(height: 16),
-                      _buildPieChart(theme, isDark),
+                      _buildPieChart(theme, isDark, total, successRate),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // 3. REPORTED STRESS DISTRIBUTION
+                // Stress Distribution
                 _buildCard(
                   isDark: isDark,
                   child: Column(
@@ -367,13 +353,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 14),
-                      _buildStressBarChart(isDark),
+                      _buildStressBarChart(isDark, _data.stressMap),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // 4. STATS SUMMARY CARD
+                // Totals
                 _buildCard(
                   isDark: isDark,
                   child: Column(
@@ -389,17 +375,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       Row(
                         children: [
                           Expanded(
-                              child: _buildBigStatBadge(
-                                  '🍆 Yes', '$_yesCount', theme.colorScheme.primary, isDark)),
+                              child: _buildBigStatBadge('🍆 Yes', '${_data.yesCount}',
+                                  theme.colorScheme.primary, isDark)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _buildBigStatBadge(
-                                  '😔 No', '$_noCount', Colors.blueGrey, isDark)),
+                                  '😔 No', '${_data.noCount}', Colors.blueGrey, isDark)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _buildBigStatBadge(
                                   '😴 Sleep',
-                                  '${_averageSleep.toStringAsFixed(1)}h',
+                                  '${_data.avgSleep.toStringAsFixed(1)}h',
                                   const Color(0xFF38BDF8),
                                   isDark)),
                         ],
@@ -409,14 +395,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         children: [
                           Expanded(
                               child: _buildBigStatBadge(
-                                  '❤️ Sex', '$_sexCount', const Color(0xFFF43F5E), isDark)),
+                                  '❤️ Sex', '${_data.sexCount}', const Color(0xFFF43F5E), isDark)),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: _buildBigStatBadge(
-                                  '✋ Solo', '$_masturbateCount', const Color(0xFFA855F7), isDark)),
+                              child: _buildBigStatBadge('✋ Solo', '${_data.masturbateCount}',
+                                  const Color(0xFFA855F7), isDark)),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: _buildBigStatBadge('💪 Workout', '$_exerciseCount',
+                              child: _buildBigStatBadge('💪 Workout', '${_data.exerciseCount}',
                                   const Color(0xFF10B981), isDark)),
                         ],
                       ),
@@ -425,7 +411,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ),
                 const SizedBox(height: 20),
 
-                // 5. WHAT AFFECTS YOUR MORNINGS
+                // Insights
                 Row(
                   children: [
                     Icon(CupertinoIcons.sparkles, size: 20, color: theme.colorScheme.primary),
@@ -440,19 +426,19 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                if (_insights.isEmpty)
+                if (_data.insights.isEmpty)
                   _buildNoCorrelationsNotice(isDark)
                 else
-                  ..._insights.map((insight) => _buildInsightCard(insight, isDark)),
+                  ..._data.insights.map((insight) => _buildInsightCard(insight, isDark)),
                 const SizedBox(height: 32),
               ],
             ),
+          ),
+        );
+      },
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // FILTER BAR
-  // ---------------------------------------------------------------------------
   Widget _buildTimeFilterBar(ThemeData theme, bool isDark) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -477,7 +463,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 : 'Custom'),
             backgroundColor: _selectedFilter == TimeFilter.custom
                 ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                : (isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9)),
             side: BorderSide(
               color: _selectedFilter == TimeFilter.custom
                   ? theme.colorScheme.primary
@@ -497,10 +483,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       selected: isSelected,
       onSelected: (_) {
         setState(() => _selectedFilter = filter);
-        _applyFilter();
       },
       selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+      backgroundColor: isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9),
       side: BorderSide(color: isSelected ? theme.colorScheme.primary : Colors.transparent),
       labelStyle: TextStyle(
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -510,11 +495,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // PIE CHART
-  // ---------------------------------------------------------------------------
-  Widget _buildPieChart(ThemeData theme, bool isDark) {
-    final total = _yesCount + _noCount;
+  Widget _buildPieChart(ThemeData theme, bool isDark, int total, double yesPercent) {
     if (total == 0) {
       return const SizedBox(
         height: 140,
@@ -523,8 +504,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       );
     }
 
-    final yesPercent = (_yesCount / total) * 100;
-    final noPercent = (_noCount / total) * 100;
+    final noPercent = 100 - yesPercent;
 
     return Row(
       children: [
@@ -544,7 +524,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ),
                 PieChartSectionData(
                   value: noPercent,
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                  color: isDark ? const Color(0xFF263346) : const Color(0xFFCBD5E1),
                   radius: 34,
                   showTitle: false,
                 ),
@@ -557,12 +537,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLegendRow('Present (🍆)', '${yesPercent.toStringAsFixed(0)}% ($_yesCount)',
+              _buildLegendRow(
+                  'Present (🍆)',
+                  '${yesPercent.toStringAsFixed(0)}% (${_data.yesCount})',
                   theme.colorScheme.primary),
               const SizedBox(height: 12),
               _buildLegendRow(
                 'Absent (😔)',
-                '${noPercent.toStringAsFixed(0)}% ($_noCount)',
+                '${noPercent.toStringAsFixed(0)}% (${_data.noCount})',
                 isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
               ),
             ],
@@ -596,11 +578,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // BAR CHART
-  // ---------------------------------------------------------------------------
-  Widget _buildStressBarChart(bool isDark) {
-    final maxStress = _stressDistribution.values.fold<int>(0, (max, v) => v > max ? v : max);
+  Widget _buildStressBarChart(bool isDark, Map<String, int> stressMap) {
+    final maxStress = stressMap.values.fold<int>(0, (max, v) => v > max ? v : max);
 
     return SizedBox(
       height: 160,
@@ -635,9 +614,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           borderData: FlBorderData(show: false),
           gridData: const FlGridData(show: false),
           barGroups: [
-            _buildBarWithNumber(0, _stressDistribution['Low']!, const Color(0xFF10B981), isDark),
-            _buildBarWithNumber(1, _stressDistribution['Medium']!, const Color(0xFFF59E0B), isDark),
-            _buildBarWithNumber(2, _stressDistribution['High']!, const Color(0xFFEF4444), isDark),
+            _buildBarWithNumber(0, stressMap['Low']!, const Color(0xFF10B981), isDark),
+            _buildBarWithNumber(1, stressMap['Medium']!, const Color(0xFFF59E0B), isDark),
+            _buildBarWithNumber(2, stressMap['High']!, const Color(0xFFEF4444), isDark),
           ],
         ),
       ),
@@ -659,9 +638,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // AUTOSCALED STAT BADGE (Prevents Text Overflow)
-  // ---------------------------------------------------------------------------
   Widget _buildBigStatBadge(String label, String value, Color color, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
@@ -689,7 +665,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
@@ -700,9 +676,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // INSIGHT CARD
-  // ---------------------------------------------------------------------------
   Widget _buildInsightCard(_SimpleInsight insight, bool isDark) {
     Color tagColor;
     String tagText;
@@ -726,10 +699,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF161F2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
@@ -795,7 +768,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF161F2E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Text(
@@ -809,15 +782,43 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: isDark ? const Color(0xFF161F2E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
         ),
       ),
       child: child,
     );
   }
+}
+
+class _AnalyticsData {
+  final List<LogModel> filteredLogs;
+  final int yesCount;
+  final int noCount;
+  final double avgSleep;
+  final int exerciseCount;
+  final int alcoholCount;
+  final int caffeineCount;
+  final int sexCount;
+  final int masturbateCount;
+  final Map<String, int> stressMap;
+  final List<_SimpleInsight> insights;
+
+  _AnalyticsData({
+    required this.filteredLogs,
+    required this.yesCount,
+    required this.noCount,
+    required this.avgSleep,
+    required this.exerciseCount,
+    required this.alcoholCount,
+    required this.caffeineCount,
+    required this.sexCount,
+    required this.masturbateCount,
+    required this.stressMap,
+    required this.insights,
+  });
 }
 
 enum _InsightType { positive, warning, info }
