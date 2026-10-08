@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -450,7 +451,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: const Text('Export Data', style: TextStyle(fontSize: 16)),
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.download),
+              icon: const Icon(CupertinoIcons.arrow_down_circle),
               onPressed: _exportLogs,
             ),
           ),
@@ -460,7 +461,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: const Text('Import Data', style: TextStyle(fontSize: 16)),
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.upload),
+              icon: const Icon(CupertinoIcons.arrow_up_circle),
               onPressed: _importLogs,
             ),
           ),

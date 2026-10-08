@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
@@ -242,7 +243,7 @@ class _CalendarPageState extends State<CalendarPage> {
                               ),
                               child: const Center(
                                 child: Text(
-                                  'NO',
+                                  '😔',
                                   style: TextStyle(color: Colors.white),
                                 ),
                               ),
@@ -280,7 +281,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                 ),
                                 child: const Center(
                                   child: Text(
-                                    'YES',
+                                    '🍆',
                                     style: TextStyle(color: Colors.white),
                                   ),
                                 ),
@@ -293,7 +294,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       if (existingLog != null) ...[
                         ElevatedButton.icon(
                           icon: const Icon(
-                            Icons.delete,
+                            CupertinoIcons.trash,
                             color: Colors.white,
                           ),
                           style: ElevatedButton.styleFrom(
@@ -381,7 +382,7 @@ class _CalendarPageState extends State<CalendarPage> {
         title: const Text('Sunrise Signal'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.analytics),
+            icon: const Icon(CupertinoIcons.chart_bar),
             onPressed: () {
               Navigator.push(
                 context,
@@ -390,7 +391,7 @@ class _CalendarPageState extends State<CalendarPage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(CupertinoIcons.settings),
             onPressed: () {
               Navigator.push(
                 context,
