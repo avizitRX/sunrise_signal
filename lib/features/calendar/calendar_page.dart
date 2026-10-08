@@ -416,6 +416,28 @@ class _CalendarPageState extends State<CalendarPage> {
                         _focusedDay = focusedDay;
                       });
                     },
+                    calendarBuilders: CalendarBuilders(
+                      markerBuilder: (context, date, events) {
+                        if (events.isEmpty) return null;
+                        return Positioned(
+                          bottom: 4,
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.elasticOut,
+                            builder: (context, scale, child) {
+                              return Transform.scale(
+                                scale: scale,
+                                child: Text(
+                                  events.first.toString(),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
                     onDaySelected: (selectedDay, focusedDay) {
                       final normalizedSelectedDay = _normalizeDate(selectedDay);
                       final normalizedToday = _normalizeDate(DateTime.now());
