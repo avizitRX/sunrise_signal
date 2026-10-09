@@ -441,17 +441,93 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
+                Text(
+                  'Disclaimer: This analysis is based solely on your logged statistical data and does not constitute medical advice.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 if (_data.insights.isEmpty)
                   _buildNoCorrelationsNotice(isDark)
-                else
-                  ..._data.insights.map((insight) => _buildInsightCard(insight, isDark)),
+                else ...[
+                  _buildCategorizedInsightsGroup(
+                    categoryTitle: 'Helps',
+                    insights: _data.insights.where((i) => i.type == _InsightType.positive).toList(),
+                    color: const Color(0xFF10B981),
+                    icon: CupertinoIcons.checkmark_circle_fill,
+                    isDark: isDark,
+                  ),
+                  _buildCategorizedInsightsGroup(
+                    categoryTitle: 'Hurts',
+                    insights: _data.insights.where((i) => i.type == _InsightType.warning).toList(),
+                    color: const Color(0xFFEF4444),
+                    icon: CupertinoIcons.exclamationmark_triangle_fill,
+                    isDark: isDark,
+                  ),
+                  _buildCategorizedInsightsGroup(
+                    categoryTitle: 'Pattern',
+                    insights: _data.insights.where((i) => i.type == _InsightType.info).toList(),
+                    color: const Color(0xFF38BDF8),
+                    icon: CupertinoIcons.info_circle_fill,
+                    isDark: isDark,
+                  ),
+                ],
+
                 const SizedBox(height: 32),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCategorizedInsightsGroup({
+    required String categoryTitle,
+    required List<_SimpleInsight> insights,
+    required Color color,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    if (insights.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 8, left: 4),
+          child: Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                categoryTitle.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '(${insights.length})',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ...insights.map((insight) => _buildInsightCard(insight, isDark)),
+        const SizedBox(height: 6),
+      ],
     );
   }
 
@@ -508,6 +584,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         color: isSelected ? theme.colorScheme.primary : (isDark ? Colors.white70 : Colors.black87),
         fontSize: 13,
       ),
+      checkmarkColor: theme.colorScheme.primary,
     );
   }
 
