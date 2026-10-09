@@ -129,11 +129,39 @@ class _CalendarPageState extends State<CalendarPage> {
                             IconButton(
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
-                              icon: const Icon(CupertinoIcons.trash,
-                                  color: Colors.redAccent, size: 18),
+                              icon: const Icon(
+                                CupertinoIcons.trash,
+                                color: Colors.redAccent,
+                                size: 18,
+                              ),
                               onPressed: () async {
-                                await logProvider.removeLog(date);
-                                if (context.mounted) Navigator.pop(context);
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text('Delete Log'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this log entry?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext, true),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: theme.colorScheme.primary,
+                                        ),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true && context.mounted) {
+                                  await logProvider.removeLog(date);
+                                  if (context.mounted) Navigator.pop(context);
+                                }
                               },
                             ),
                         ],
@@ -263,7 +291,7 @@ class _CalendarPageState extends State<CalendarPage> {
                           Expanded(
                             child: _HabitPill(
                               label: 'Workout',
-                              icon: CupertinoIcons.heart_fill,
+                              icon: Icons.fitness_center_rounded,
                               isSelected: exercise,
                               onTap: () => setModalState(() => exercise = !exercise),
                             ),
@@ -815,7 +843,7 @@ class _HabitPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primary.withValues(alpha: 0.15)
-              : (isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9)),
+              : (isDark ? const Color.fromARGB(255, 28, 36, 51) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? theme.colorScheme.primary : Colors.transparent,
