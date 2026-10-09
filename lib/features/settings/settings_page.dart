@@ -5,7 +5,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sunrise_signal/providers/providers/settings_provider.dart';
@@ -36,8 +38,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final AuthService _authService = AuthService();
   final SecureStorageService _storageService = SecureStorageService();
   final LocalAuthentication _localAuth = LocalAuthentication();
-
-  int _easterEggCount = 0;
 
   @override
   void initState() {
@@ -138,6 +138,44 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickTimeAndSetReminder() async {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // 1. Resolve platform-specific implementation to check / request permissions
+    final androidImpl =
+        plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final iosImpl =
+        plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+
+    // 2. Check current permission status
+    bool? isGranted = await androidImpl?.areNotificationsEnabled() ??
+        await iosImpl?.requestPermissions(
+          alert: false,
+          badge: false,
+          sound: false,
+        );
+
+    // 3. Request permission if not granted
+    if (isGranted == false || isGranted == null) {
+      if (androidImpl != null) {
+        isGranted = await androidImpl.requestNotificationsPermission();
+      } else if (iosImpl != null) {
+        isGranted = await iosImpl.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+    }
+
+    // 4. Handle permanently denied or restricted permission
+    if (isGranted == false || isGranted == null) {
+      if (!mounted) return;
+      _showPermissionDeniedDialog();
+      return;
+    }
+
+    // 5. Open TimePicker and schedule reminder if permission is granted
+    if (!mounted) return;
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: _reminderTime ?? const TimeOfDay(hour: 7, minute: 30),
@@ -148,12 +186,43 @@ class _SettingsPageState extends State<SettingsPage> {
         _reminderTime = pickedTime;
         _isReminderEnabled = true;
       });
+
       await ReminderService().scheduleDailyReminder(
         hour: pickedTime.hour,
         minute: pickedTime.minute,
       );
+
+      if (!mounted) return;
       _showToast('Reminder set for ${pickedTime.format(context)}');
     }
+  }
+
+  /// Dialog prompting the user to manually enable notifications in system settings
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notification Permission Required'),
+        content: const Text(
+          'Notifications are disabled. Please turn on notifications in app settings to receive daily reminders.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Opens app settings page across Android and iOS
+              // Requires `permission_handler` package
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- BACKUP & RESTORE ---
@@ -348,28 +417,62 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 32),
 
-          // Easter Egg & App Version
           Center(
             child: GestureDetector(
-              onTap: () {
-                _easterEggCount++;
-                if (_easterEggCount == 7) {
-                  HapticFeedback.heavyImpact();
-                  _showAboutDialog();
-                  _easterEggCount = 0;
-                }
+              onLongPress: () {
+                HapticFeedback.heavyImpact();
+                showDialog(
+                  context: context,
+                  builder: (dialogContext) {
+                    final theme = Theme.of(dialogContext);
+
+                    return AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🌅', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Built with ♥️ using Flutter',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Free and open source',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Special thanks to everyone who reported issues and shared ideas on GitHub!',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
               },
               child: Text(
-                'Sunrise Signal v2.2.0',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.6,
-                  color: isDark ? Colors.white38 : Colors.black38,
-                ),
+                'Sunrise Signal v3.0.0',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
               ),
             ),
           ),
+
           const SizedBox(height: 20),
         ],
       ),
@@ -424,25 +527,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         );
       },
-    );
-  }
-
-  void _showAboutDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Sunrise Signal'),
-        content: const Text(
-          'Engineered for men\'s morning health & longevity tracking.\n\nCrafted by Avizit Roy\navizitRX.com',
-          style: TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
     );
   }
 

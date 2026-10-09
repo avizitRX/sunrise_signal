@@ -48,22 +48,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sunrise Signal',
-      // theme: ThemeData(
-      //   colorScheme: ColorScheme.fromSeed(
-      //     seedColor: Colors.red,
-      //     brightness: Brightness.light,
-      //   ),
-      // ),
-      // darkTheme: ThemeData(
-      //   colorScheme: ColorScheme.fromSeed(
-      //     seedColor: Colors.black,
-      //     brightness: Brightness.dark,
-      //   ),
-      //   bottomSheetTheme: const BottomSheetThemeData(
-      //     backgroundColor: Colors.brown,
-      //     surfaceTintColor: Colors.brown,
-      //   ),
-      // ),
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: Provider.of<ThemeService>(context, listen: true).isDarkMode
