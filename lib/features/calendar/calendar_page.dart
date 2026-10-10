@@ -413,11 +413,12 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                   child: TableCalendar(
                     firstDay: DateTime(2023),
-                    lastDay: DateTime(2030),
+                    lastDay: DateTime(2080),
                     focusedDay: _focusedDay,
                     currentDay: DateTime.now(),
                     calendarFormat: CalendarFormat.month,
                     startingDayOfWeek: settingsProvider.startingDayOfWeek,
+                    weekendDays: [],
                     headerStyle: const HeaderStyle(
                       formatButtonVisible: false,
                       titleCentered: true,
