@@ -21,6 +21,7 @@ class LockScreenPageState extends State<LockScreenPage> {
   bool _isBiometricEnabled = false;
   bool _isLoading = true;
   bool _isAuthenticating = false;
+  bool _invalidPasscode = false;
 
   @override
   void initState() {
@@ -95,47 +96,82 @@ class LockScreenPageState extends State<LockScreenPage> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Enter Passcode"),
-        content: TextField(
-          controller: passcodeController,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: "Passcode",
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              final entered = passcodeController.text.trim();
-              final isCorrect = await _authService.verifyPasscode(entered);
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Listen to changes to clear the error message when typing begins
+          passcodeController.addListener(() {
+            if (_invalidPasscode && passcodeController.text.isNotEmpty) {
+              setDialogState(() {
+                _invalidPasscode = false;
+              });
+            }
+          });
 
-              if (!context.mounted) return;
-
-              if (isCorrect) {
-                Navigator.pop(context); // Close dialog
-                _navigateToCalendar();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Incorrect passcode'),
-                    behavior: SnackBarBehavior.floating,
+          return AlertDialog(
+            title: const Text("Enter Passcode"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: passcodeController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: "Passcode",
+                    border: OutlineInputBorder(),
                   ),
-                );
-              }
-            },
-            child: const Text("Unlock"),
-          ),
-        ],
+                ),
+                if (_invalidPasscode)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Incorrect Password!',
+                      style: TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  )
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  setState(() => _invalidPasscode = false);
+                  Navigator.pop(context);
+                },
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final entered = passcodeController.text.trim();
+                  final isCorrect = await _authService.verifyPasscode(entered);
+
+                  if (!context.mounted) return;
+
+                  if (isCorrect) {
+                    setState(() => _invalidPasscode = false);
+                    Navigator.pop(context); // Close dialog
+                    _navigateToCalendar();
+                  } else {
+                    setDialogState(() {
+                      _invalidPasscode = true;
+                    });
+                    setState(() {
+                      _invalidPasscode = true;
+                    });
+                  }
+                },
+                child: const Text("Unlock"),
+              ),
+            ],
+          );
+        },
       ),
-    );
+    ).then((_) {
+      passcodeController.dispose();
+      if (_invalidPasscode) {
+        setState(() => _invalidPasscode = false);
+      }
+    });
   }
 
   @override
