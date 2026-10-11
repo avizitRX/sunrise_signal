@@ -9,7 +9,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sunrise_signal/providers/providers/settings_provider.dart';
 
 import '../../models/log_model.dart';
@@ -33,7 +32,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isReminderEnabled = false;
   TimeOfDay? _reminderTime;
   bool _isAuthenticating = false;
-  String _selectedWeekend = 'Sat & Sun'; // Default weekend setting
 
   final AuthService _authService = AuthService();
   final SecureStorageService _storageService = SecureStorageService();
@@ -47,12 +45,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
     final passcodeSet = await _authService.isPasscodeSet();
     final biometricEnabled = await _authService.isBiometricEnabled();
     final reminderEnabled = await ReminderService.isReminderEnabled();
     final reminderTime = await ReminderService.getReminderTime();
-    final savedWeekend = prefs.getString('weekend_mode') ?? 'Sat & Sun';
 
     if (mounted) {
       setState(() {
@@ -60,7 +56,6 @@ class _SettingsPageState extends State<SettingsPage> {
         _isBiometricEnabled = biometricEnabled;
         _isReminderEnabled = reminderEnabled;
         _reminderTime = reminderTime;
-        _selectedWeekend = savedWeekend;
       });
     }
   }
@@ -138,24 +133,31 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickTimeAndSetReminder() async {
+    // 1. Check and request Exact Alarm permission for Android 13+
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      final status = await Permission.scheduleExactAlarm.status;
+      if (!status.isGranted) {
+        final result = await Permission.scheduleExactAlarm.request();
+        if (!result.isGranted) {
+          if (!mounted) return;
+          _showExactAlarmPermissionDialog();
+          return;
+        }
+      }
+    }
+
     final plugin = FlutterLocalNotificationsPlugin();
 
-    // 1. Resolve platform-specific implementation to check / request permissions
+    // 2. Resolve platform-specific implementation to check / request regular notifications
     final androidImpl =
         plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     final iosImpl =
         plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
 
-    // 2. Check current permission status
-    bool? isGranted = await androidImpl?.areNotificationsEnabled() ??
-        await iosImpl?.requestPermissions(
-          alert: false,
-          badge: false,
-          sound: false,
-        );
+    // 3. Check current notification permission status
+    bool? isGranted = await androidImpl?.areNotificationsEnabled() ?? false;
 
-    // 3. Request permission if not granted
-    if (isGranted == false || isGranted == null) {
+    if (!isGranted) {
       if (androidImpl != null) {
         isGranted = await androidImpl.requestNotificationsPermission();
       } else if (iosImpl != null) {
@@ -167,18 +169,17 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
 
-    // 4. Handle permanently denied or restricted permission
-    if (isGranted == false || isGranted == null) {
+    if (isGranted != true) {
       if (!mounted) return;
       _showPermissionDeniedDialog();
       return;
     }
 
-    // 5. Open TimePicker and schedule reminder if permission is granted
+    // 4. Open TimePicker and schedule reminder if permissions are granted
     if (!mounted) return;
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: _reminderTime ?? const TimeOfDay(hour: 7, minute: 30),
+      initialTime: _reminderTime ?? const TimeOfDay(hour: 7, minute: 0),
     );
 
     if (pickedTime != null) {
@@ -197,7 +198,32 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// Dialog prompting the user to manually enable notifications in system settings
+  /// Dialog prompting the user to enable exact alarms in system settings if denied
+  void _showExactAlarmPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exact Alarm Permission Required'),
+        content: const Text(
+          'To send notifications at the exact scheduled time, please allow exact alarms in system settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showPermissionDeniedDialog() {
     showDialog(
       context: context,
@@ -214,8 +240,6 @@ class _SettingsPageState extends State<SettingsPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Opens app settings page across Android and iOS
-              // Requires `permission_handler` package
               openAppSettings();
             },
             child: const Text('Open Settings'),
