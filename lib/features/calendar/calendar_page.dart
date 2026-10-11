@@ -30,7 +30,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Future<void> _notificationInitialization() async {
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
     const initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
     );

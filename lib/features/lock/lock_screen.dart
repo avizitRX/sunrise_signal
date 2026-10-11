@@ -21,12 +21,10 @@ class LockScreenPageState extends State<LockScreenPage> {
   bool _isBiometricEnabled = false;
   bool _isLoading = true;
   bool _isAuthenticating = false;
-  bool _invalidPasscode = false;
 
   @override
   void initState() {
     super.initState();
-    // Ensure the first frame renders before initiating auth checks
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeSecurity();
     });
@@ -38,7 +36,7 @@ class LockScreenPageState extends State<LockScreenPage> {
 
     if (!mounted) return;
 
-    // If no security is configured, bypass the lock screen entirely
+    // If no security is configured, bypass the lock screen immediately
     if (!passcodeSet && !biometricEnabled) {
       _navigateToCalendar();
       return;
@@ -57,12 +55,11 @@ class LockScreenPageState extends State<LockScreenPage> {
   }
 
   void _navigateToCalendar() {
-    Navigator.pushAndRemoveUntil<void>(
-      context,
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute<void>(
         builder: (BuildContext context) => const CalendarPage(),
       ),
-      (Route<dynamic> route) => false,
     );
   }
 
@@ -72,7 +69,7 @@ class LockScreenPageState extends State<LockScreenPage> {
     setState(() => _isAuthenticating = true);
 
     try {
-      bool isAuthenticated = await _localAuth.authenticate(
+      final isAuthenticated = await _localAuth.authenticate(
         localizedReason: "Authenticate to unlock Sunrise Signal",
       );
 
@@ -92,86 +89,14 @@ class LockScreenPageState extends State<LockScreenPage> {
 
   // Authenticate using passcode
   Future<void> _authenticateWithPasscode() async {
-    final passcodeController = TextEditingController();
-
-    showDialog(
+    final bool? unlocked = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          // Listen to changes to clear the error message when typing begins
-          passcodeController.addListener(() {
-            if (_invalidPasscode && passcodeController.text.isNotEmpty) {
-              setDialogState(() {
-                _invalidPasscode = false;
-              });
-            }
-          });
+      builder: (context) => _PasscodeDialog(authService: _authService),
+    );
 
-          return AlertDialog(
-            title: const Text("Enter Passcode"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: passcodeController,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: "Passcode",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                if (_invalidPasscode)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      'Incorrect Password!',
-                      style: TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  )
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  setState(() => _invalidPasscode = false);
-                  Navigator.pop(context);
-                },
-                child: const Text("Cancel"),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final entered = passcodeController.text.trim();
-                  final isCorrect = await _authService.verifyPasscode(entered);
-
-                  if (!context.mounted) return;
-
-                  if (isCorrect) {
-                    setState(() => _invalidPasscode = false);
-                    Navigator.pop(context); // Close dialog
-                    _navigateToCalendar();
-                  } else {
-                    setDialogState(() {
-                      _invalidPasscode = true;
-                    });
-                    setState(() {
-                      _invalidPasscode = true;
-                    });
-                  }
-                },
-                child: const Text("Unlock"),
-              ),
-            ],
-          );
-        },
-      ),
-    ).then((_) {
-      passcodeController.dispose();
-      if (_invalidPasscode) {
-        setState(() => _invalidPasscode = false);
-      }
-    });
+    if (unlocked == true && mounted) {
+      _navigateToCalendar();
+    }
   }
 
   @override
@@ -195,7 +120,6 @@ class LockScreenPageState extends State<LockScreenPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Shield Badge
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -223,8 +147,6 @@ class LockScreenPageState extends State<LockScreenPage> {
                   ),
                 ),
                 const SizedBox(height: 36),
-
-                // Biometrics Button (if available)
                 if (_isBiometricEnabled) ...[
                   FilledButton.icon(
                     onPressed: _isAuthenticating ? null : _authenticateWithBiometrics,
@@ -233,8 +155,6 @@ class LockScreenPageState extends State<LockScreenPage> {
                   ),
                   const SizedBox(height: 12),
                 ],
-
-                // Passcode Option
                 if (_isPasscodeSet)
                   OutlinedButton.icon(
                     onPressed: _authenticateWithPasscode,
@@ -252,6 +172,106 @@ class LockScreenPageState extends State<LockScreenPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Separate StatefulWidget ensures the controller lifecycle is tied to the dialog's
+/// true unmount lifecycle, preventing "used after being disposed" errors.
+class _PasscodeDialog extends StatefulWidget {
+  final AuthService authService;
+
+  const _PasscodeDialog({required this.authService});
+
+  @override
+  State<_PasscodeDialog> createState() => _PasscodeDialogState();
+}
+
+class _PasscodeDialogState extends State<_PasscodeDialog> {
+  late final TextEditingController _passcodeController;
+  bool _invalidPasscode = false;
+  bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _passcodeController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _passcodeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isChecking) return;
+    setState(() => _isChecking = true);
+
+    final entered = _passcodeController.text.trim();
+    final isCorrect = await widget.authService.verifyPasscode(entered);
+
+    if (!mounted) return;
+
+    if (isCorrect) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _invalidPasscode = true;
+        _isChecking = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Enter Passcode"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _passcodeController,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            onSubmitted: (_) => _submit(),
+            onChanged: (text) {
+              if (_invalidPasscode && text.isNotEmpty) {
+                setState(() => _invalidPasscode = false);
+              }
+            },
+            decoration: const InputDecoration(
+              hintText: "Passcode",
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (_invalidPasscode)
+            const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text(
+                'Incorrect Password!',
+                style: TextStyle(color: Colors.red, fontSize: 13),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: _isChecking ? null : _submit,
+          child: _isChecking
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text("Unlock"),
+        ),
+      ],
     );
   }
 }
