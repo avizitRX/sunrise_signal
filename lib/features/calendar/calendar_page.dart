@@ -419,7 +419,10 @@ class _CalendarPageState extends State<CalendarPage> {
                     currentDay: DateTime.now(),
                     calendarFormat: CalendarFormat.month,
                     startingDayOfWeek: settingsProvider.startingDayOfWeek,
-                    weekendDays: [],
+                    weekendDays: const [],
+
+                    rowHeight: MediaQuery.of(context).size.height * 0.1,
+
                     headerStyle: const HeaderStyle(
                       formatButtonVisible: false,
                       titleCentered: true,
@@ -448,26 +451,31 @@ class _CalendarPageState extends State<CalendarPage> {
                         _focusedDay = focusedDay;
                       });
                     },
+                    // 2. EXACT ORIGINAL MARKER BUILDER
                     calendarBuilders: CalendarBuilders(
                       markerBuilder: (context, date, events) {
-                        if (events.isEmpty) return null;
-                        return Positioned(
-                          bottom: 4,
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.elasticOut,
-                            builder: (context, scale, child) {
-                              return Transform.scale(
-                                scale: scale,
-                                child: Text(
-                                  events.first.toString(),
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              );
-                            },
-                          ),
-                        );
+                        if (events.isNotEmpty) {
+                          return Positioned(
+                            bottom: 1,
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                top: 8.0,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: events
+                                    .map(
+                                      (event) => Text(
+                                        event.toString(),
+                                        style: const TextStyle(fontSize: 18),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
                       },
                     ),
                     onDaySelected: (selectedDay, focusedDay) {
