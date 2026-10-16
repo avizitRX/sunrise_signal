@@ -31,6 +31,8 @@ void main() async {
   );
 }
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -39,6 +41,7 @@ class MyApp extends StatelessWidget {
     final isDark = Provider.of<ThemeService>(context).isDarkMode;
 
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'Sunrise Signal',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

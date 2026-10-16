@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/providers/providers/settings_provider.dart';
+import 'package:sunrise_signal/services/prompt_service.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../providers/log_provider.dart';
@@ -42,7 +43,7 @@ class _CalendarPageState extends State<CalendarPage> {
     return DateTime.utc(date.year, date.month, date.day);
   }
 
-  void _logEntryBottomSheet(DateTime date) {
+  Future<bool?> _logEntryBottomSheet(DateTime date) async {
     final logProvider = Provider.of<LogProvider>(context, listen: false);
     final existingLog = logProvider.getLogForDate(date);
 
@@ -61,7 +62,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    showModalBottomSheet(
+    return await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: isDark ? const Color(0xFF161F2E) : Colors.white,
@@ -341,7 +342,15 @@ class _CalendarPageState extends State<CalendarPage> {
                             caffeineIntake: caffeineIntake ? 'Yes' : 'No',
                             sexualActivity: calculatedSexActivity,
                           );
-                          if (context.mounted) Navigator.pop(context);
+
+                          if (context.mounted) {
+                            Navigator.pop(context, true); // Close bottom sheet
+
+                            // TRIGGER MONTHLY DONATION / SHARE CHECK
+                            PromptService.checkAndShowPrompt(
+                              logProvider.logs.length,
+                            );
+                          }
                         },
                         child: const Text('Save Record'),
                       ),
@@ -478,7 +487,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         return const SizedBox();
                       },
                     ),
-                    onDaySelected: (selectedDay, focusedDay) {
+                    onDaySelected: (selectedDay, focusedDay) async {
                       final normalizedSelectedDay = _normalizeDate(selectedDay);
                       final normalizedToday = _normalizeDate(DateTime.now());
 
@@ -497,7 +506,13 @@ class _CalendarPageState extends State<CalendarPage> {
                         _focusedDay = focusedDay;
                       });
 
-                      _logEntryBottomSheet(selectedDay);
+                      // 1. Wait for bottom sheet to close
+                      final saved = await _logEntryBottomSheet(selectedDay);
+
+                      // 2. Here, `context` belongs to CalendarPage, so context.mounted is ALWAYS true!
+                      if (saved == true) {
+                        PromptService.checkAndShowPrompt(logProvider.logs.length);
+                      }
                     },
                     eventLoader: (date) {
                       final normalized = _normalizeDate(date);

@@ -25,6 +25,8 @@ dependencies:
   flutter_timezone: ^5.1.1
   shared_preferences: ^2.5.6
   permission_handler: ^13.0.2
+  url_launcher: ^6.3.3
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:

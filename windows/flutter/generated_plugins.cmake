@@ -7,6 +7,8 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_timezone
   local_auth_windows
   permission_handler_windows
+  share_plus
+  url_launcher_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
