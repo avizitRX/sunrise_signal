@@ -53,7 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) {
       setState(() {
         _isPasscodeSet = passcodeSet;
-        _isBiometricEnabled = biometricEnabled;
+        _isBiometricEnabled = passcodeSet && biometricEnabled;
         _isReminderEnabled = reminderEnabled;
         _reminderTime = reminderTime;
       });
@@ -72,6 +72,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // --- BIOMETRIC TOGGLE (Guards BOTH ON and OFF) ---
   Future<void> _toggleBiometric(bool value) async {
+    if (!_isPasscodeSet) {
+      _showToast('Please set a passcode first');
+      return;
+    }
+
     if (_isAuthenticating) return;
     setState(() => _isAuthenticating = true);
 
@@ -113,7 +118,14 @@ class _SettingsPageState extends State<SettingsPage> {
       await showSetPasscodeDialog(context);
     } else {
       await _authService.removePasscode();
-      setState(() => _isPasscodeSet = false);
+      // If passcode is removed, also turn off biometric protection
+      if (_isBiometricEnabled) {
+        await _authService.disableBiometricLock();
+      }
+      setState(() {
+        _isPasscodeSet = false;
+        _isBiometricEnabled = false;
+      });
       _showToast('Passcode removed');
     }
   }
@@ -327,7 +339,7 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // 1. ROUTINE & NOTIFICATIONS
+          // 1. ROUTINE & TIMING
           _buildSectionHeader('ROUTINE & TIMING'),
           _buildGroupContainer(
             isDark: isDark,
@@ -375,7 +387,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   onChanged: _togglePasscode,
                 ),
               ),
-              if (_hasBiometrics) ...[
+              // Biometrics is only available when device supports it AND a passcode is set
+              if (_hasBiometrics && _isPasscodeSet) ...[
                 _buildDivider(isDark),
                 _buildSettingTile(
                   icon: CupertinoIcons.viewfinder,
@@ -583,9 +596,9 @@ class _SettingsPageState extends State<SettingsPage> {
         border: Border.all(color: borderColor),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(17), // Keeps ripple cleanly inside the border
+        borderRadius: BorderRadius.circular(17),
         child: Material(
-          color: cardColor, // Establishes the true ink canvas
+          color: cardColor,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: children,
