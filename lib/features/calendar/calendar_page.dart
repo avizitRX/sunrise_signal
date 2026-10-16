@@ -43,6 +43,224 @@ class _CalendarPageState extends State<CalendarPage> {
     return DateTime.utc(date.year, date.month, date.day);
   }
 
+  void _goToToday() {
+    final now = DateTime.now();
+    setState(() {
+      _focusedDay = now;
+      _selectedDay = _normalizeDate(now);
+    });
+  }
+
+  Future<void> _showMonthYearPicker() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    int tempYear = _focusedDay.year;
+    int tempMonth = _focusedDay.month;
+
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF161F2E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setPickerState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Month & Year',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _goToToday();
+                        },
+                        child: const Text('Go to Today'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Year Selector
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed:
+                              tempYear > 2023 ? () => setPickerState(() => tempYear--) : null,
+                        ),
+                        Text(
+                          '$tempYear',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed:
+                              tempYear < 2080 ? () => setPickerState(() => tempYear++) : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Month Grid
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: 12,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1.8,
+                    ),
+                    itemBuilder: (context, index) {
+                      final monthIndex = index + 1;
+                      final isSelected = tempYear == _focusedDay.year && monthIndex == tempMonth;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          setState(() {
+                            _focusedDay = DateTime(tempYear, monthIndex, 1);
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : (isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            months[index],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected
+                                  ? theme.colorScheme.onPrimary
+                                  : (isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDayCell(
+    BuildContext context,
+    DateTime day,
+    LogProvider logProvider, {
+    required bool isSelected,
+    required bool isToday,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final normalized = _normalizeDate(day);
+    final log = logProvider.logs[normalized];
+
+    Color? backgroundColor;
+    Color textColor = isDark ? Colors.white : Colors.black87;
+    BoxBorder? border;
+
+    if (log != null) {
+      if (log.emoji == '🍆') {
+        backgroundColor = theme.colorScheme.primary; // Red / Yes
+        textColor = Colors.white;
+      } else {
+        backgroundColor = const Color(0xFF64748B); // Grey / No
+        textColor = Colors.white;
+      }
+    }
+
+    if (isSelected) {
+      if (backgroundColor != null) {
+        border = Border.all(
+          color: isDark ? Colors.white : Colors.black,
+          width: 2,
+        );
+      } else {
+        border = Border.all(
+          color: theme.colorScheme.primary,
+          width: 1.5,
+        );
+      }
+    } else if (isToday && backgroundColor == null) {
+      textColor = theme.colorScheme.primary;
+    }
+
+    return Center(
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+          border: border,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '${day.day}',
+          style: TextStyle(
+            color: textColor,
+            fontWeight: isToday || isSelected || log != null ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<bool?> _logEntryBottomSheet(DateTime date) async {
     final logProvider = Provider.of<LogProvider>(context, listen: false);
     final existingLog = logProvider.getLogForDate(date);
@@ -344,9 +562,8 @@ class _CalendarPageState extends State<CalendarPage> {
                           );
 
                           if (context.mounted) {
-                            Navigator.pop(context, true); // Close bottom sheet
+                            Navigator.pop(context, true);
 
-                            // TRIGGER MONTHLY DONATION / SHARE CHECK
                             PromptService.checkAndShowPrompt(
                               logProvider.logs.length,
                             );
@@ -370,7 +587,6 @@ class _CalendarPageState extends State<CalendarPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Listen to settings for dynamic weekend days
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Consumer<LogProvider>(
@@ -421,106 +637,183 @@ class _CalendarPageState extends State<CalendarPage> {
                       color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
                     ),
                   ),
-                  child: TableCalendar(
-                    firstDay: DateTime(2023),
-                    lastDay: DateTime(2080),
-                    focusedDay: _focusedDay,
-                    currentDay: DateTime.now(),
-                    calendarFormat: CalendarFormat.month,
-                    startingDayOfWeek: settingsProvider.startingDayOfWeek,
-                    weekendDays: const [],
-
-                    rowHeight: MediaQuery.of(context).size.height * 0.1,
-
-                    headerStyle: const HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                      titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      leftChevronIcon: Icon(Icons.chevron_left, size: 20),
-                      rightChevronIcon: Icon(Icons.chevron_right, size: 20),
-                    ),
-                    calendarStyle: CalendarStyle(
-                      outsideDaysVisible: false,
-                      todayDecoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      todayTextStyle: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      selectedDecoration: BoxDecoration(
-                        color: theme.colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                    onPageChanged: (focusedDay) {
-                      setState(() {
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    // 2. EXACT ORIGINAL MARKER BUILDER
-                    calendarBuilders: CalendarBuilders(
-                      markerBuilder: (context, date, events) {
-                        if (events.isNotEmpty) {
-                          return Positioned(
-                            bottom: 1,
-                            child: Container(
-                              margin: const EdgeInsets.only(
-                                top: 8.0,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: events
-                                    .map(
-                                      (event) => Text(
-                                        event.toString(),
-                                        style: const TextStyle(fontSize: 18),
+                  child: Column(
+                    children: [
+                      // Interactive Calendar Header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+                        child: Row(
+                          children: [
+                            // Month & Year Picker Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: _showMonthYearPicker,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('MMMM yyyy').format(_focusedDay),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                    )
-                                    .toList(),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                    ),
-                    onDaySelected: (selectedDay, focusedDay) async {
-                      final normalizedSelectedDay = _normalizeDate(selectedDay);
-                      final normalizedToday = _normalizeDate(DateTime.now());
+                            const Spacer(),
 
-                      if (normalizedSelectedDay.isAfter(normalizedToday)) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            content: Text('Cannot log entries for future dates.'),
+                            // "Today" Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: _goToToday,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.calendar_today,
+                                      size: 13,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Today',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Prev Month Chevron
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _focusedDay = DateTime(
+                                    _focusedDay.year,
+                                    _focusedDay.month - 1,
+                                    1,
+                                  );
+                                });
+                              },
+                            ),
+
+                            // Next Month Chevron
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _focusedDay = DateTime(
+                                    _focusedDay.year,
+                                    _focusedDay.month + 1,
+                                    1,
+                                  );
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      TableCalendar(
+                        headerVisible: false,
+                        firstDay: DateTime(2023),
+                        lastDay: DateTime(2080),
+                        focusedDay: _focusedDay,
+                        currentDay: DateTime.now(),
+                        calendarFormat: CalendarFormat.month,
+                        startingDayOfWeek: settingsProvider.startingDayOfWeek,
+                        weekendDays: const [],
+                        rowHeight: MediaQuery.of(context).size.height * 0.07,
+                        calendarStyle: const CalendarStyle(
+                          outsideDaysVisible: false,
+                        ),
+                        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedDay = focusedDay;
+                          });
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          defaultBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: false,
+                            isToday: false,
                           ),
-                        );
-                        return;
-                      }
+                          todayBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: false,
+                            isToday: true,
+                          ),
+                          selectedBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: true,
+                            isToday: isSameDay(day, DateTime.now()),
+                          ),
+                        ),
+                        onDaySelected: (selectedDay, focusedDay) async {
+                          final normalizedSelectedDay = _normalizeDate(selectedDay);
+                          final normalizedToday = _normalizeDate(DateTime.now());
 
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
+                          if (normalizedSelectedDay.isAfter(normalizedToday)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                content: Text('Cannot log entries for future dates.'),
+                              ),
+                            );
+                            return;
+                          }
 
-                      // 1. Wait for bottom sheet to close
-                      final saved = await _logEntryBottomSheet(selectedDay);
+                          setState(() {
+                            _selectedDay = selectedDay;
+                            _focusedDay = focusedDay;
+                          });
 
-                      // 2. Here, `context` belongs to CalendarPage, so context.mounted is ALWAYS true!
-                      if (saved == true) {
-                        PromptService.checkAndShowPrompt(logProvider.logs.length);
-                      }
-                    },
-                    eventLoader: (date) {
-                      final normalized = _normalizeDate(date);
-                      if (logs.containsKey(normalized)) {
-                        return [logs[normalized]!.emoji];
-                      }
-                      return [];
-                    },
+                          final saved = await _logEntryBottomSheet(selectedDay);
+
+                          if (saved == true) {
+                            PromptService.checkAndShowPrompt(logProvider.logs.length);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
 
