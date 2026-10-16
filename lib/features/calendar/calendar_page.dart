@@ -755,6 +755,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         startingDayOfWeek: settingsProvider.startingDayOfWeek,
                         weekendDays: const [],
                         rowHeight: MediaQuery.of(context).size.height * 0.07,
+                        availableGestures: AvailableGestures.horizontalSwipe,
                         calendarStyle: const CalendarStyle(
                           outsideDaysVisible: false,
                         ),
