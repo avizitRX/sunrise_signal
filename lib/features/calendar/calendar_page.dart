@@ -19,12 +19,17 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  static final DateTime _firstDay = DateTime.utc(2023, 1, 1);
+  static final DateTime _lastDay = DateTime.utc(2080, 12, 31);
+
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _focusedDay = _clampDate(now);
     _selectedDay = _normalizeDate(_focusedDay);
     _notificationInitialization();
   }
@@ -43,8 +48,14 @@ class _CalendarPageState extends State<CalendarPage> {
     return DateTime.utc(date.year, date.month, date.day);
   }
 
+  DateTime _clampDate(DateTime date) {
+    if (date.isBefore(_firstDay)) return _firstDay;
+    if (date.isAfter(_lastDay)) return _lastDay;
+    return date;
+  }
+
   void _goToToday() {
-    final now = DateTime.now();
+    final now = _clampDate(DateTime.now());
     setState(() {
       _focusedDay = now;
       _selectedDay = _normalizeDate(now);
@@ -126,8 +137,9 @@ class _CalendarPageState extends State<CalendarPage> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.chevron_left),
-                          onPressed:
-                              tempYear > 2023 ? () => setPickerState(() => tempYear--) : null,
+                          onPressed: tempYear > _firstDay.year
+                              ? () => setPickerState(() => tempYear--)
+                              : null,
                         ),
                         Text(
                           '$tempYear',
@@ -135,8 +147,9 @@ class _CalendarPageState extends State<CalendarPage> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right),
-                          onPressed:
-                              tempYear < 2080 ? () => setPickerState(() => tempYear++) : null,
+                          onPressed: tempYear < _lastDay.year
+                              ? () => setPickerState(() => tempYear++)
+                              : null,
                         ),
                       ],
                     ),
@@ -161,8 +174,9 @@ class _CalendarPageState extends State<CalendarPage> {
                       return InkWell(
                         borderRadius: BorderRadius.circular(10),
                         onTap: () {
+                          final targetDate = _clampDate(DateTime.utc(tempYear, monthIndex, 1));
                           setState(() {
-                            _focusedDay = DateTime(tempYear, monthIndex, 1);
+                            _focusedDay = targetDate;
                           });
                           Navigator.pop(sheetContext);
                         },
@@ -349,10 +363,20 @@ class _CalendarPageState extends State<CalendarPage> {
                             IconButton(
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
-                              icon: const Icon(
-                                CupertinoIcons.trash,
-                                color: Colors.redAccent,
-                                size: 18,
+                              icon: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.trash,
+                                      color: theme.colorScheme.primary,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Delete',
+                                        style: TextStyle(color: theme.colorScheme.primary))
+                                  ],
+                                ),
                               ),
                               onPressed: () async {
                                 final confirmed = await showDialog<bool>(
@@ -589,6 +613,13 @@ class _CalendarPageState extends State<CalendarPage> {
 
     final settingsProvider = Provider.of<SettingsProvider>(context);
 
+    // Guard previous and next buttons against crossing _firstDay and _lastDay
+    final canGoPrev = _focusedDay.year > _firstDay.year ||
+        (_focusedDay.year == _firstDay.year && _focusedDay.month > _firstDay.month);
+
+    final canGoNext = _focusedDay.year < _lastDay.year ||
+        (_focusedDay.year == _lastDay.year && _focusedDay.month < _lastDay.month);
+
     return Consumer<LogProvider>(
       builder: (context, logProvider, _) {
         final logs = logProvider.logs;
@@ -661,7 +692,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                       ),
                                     ),
                                     const SizedBox(width: 4),
-                                    Icon(
+                                    const Icon(
                                       Icons.arrow_drop_down,
                                       size: 20,
                                     ),
@@ -704,7 +735,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             ),
                             const SizedBox(width: 4),
 
-                            // Prev Month Chevron
+                            // Prev Month Chevron with Guard
                             IconButton(
                               icon: const Icon(Icons.chevron_left, size: 22),
                               padding: EdgeInsets.zero,
@@ -712,18 +743,21 @@ class _CalendarPageState extends State<CalendarPage> {
                                 minWidth: 32,
                                 minHeight: 32,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _focusedDay = DateTime(
-                                    _focusedDay.year,
-                                    _focusedDay.month - 1,
-                                    1,
-                                  );
-                                });
-                              },
+                              onPressed: canGoPrev
+                                  ? () {
+                                      setState(() {
+                                        final target = DateTime.utc(
+                                          _focusedDay.year,
+                                          _focusedDay.month - 1,
+                                          1,
+                                        );
+                                        _focusedDay = _clampDate(target);
+                                      });
+                                    }
+                                  : null,
                             ),
 
-                            // Next Month Chevron
+                            // Next Month Chevron with Guard
                             IconButton(
                               icon: const Icon(Icons.chevron_right, size: 22),
                               padding: EdgeInsets.zero,
@@ -731,15 +765,18 @@ class _CalendarPageState extends State<CalendarPage> {
                                 minWidth: 32,
                                 minHeight: 32,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _focusedDay = DateTime(
-                                    _focusedDay.year,
-                                    _focusedDay.month + 1,
-                                    1,
-                                  );
-                                });
-                              },
+                              onPressed: canGoNext
+                                  ? () {
+                                      setState(() {
+                                        final target = DateTime.utc(
+                                          _focusedDay.year,
+                                          _focusedDay.month + 1,
+                                          1,
+                                        );
+                                        _focusedDay = _clampDate(target);
+                                      });
+                                    }
+                                  : null,
                             ),
                           ],
                         ),
@@ -747,8 +784,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
                       TableCalendar(
                         headerVisible: false,
-                        firstDay: DateTime(2023),
-                        lastDay: DateTime(2080),
+                        firstDay: _firstDay,
+                        lastDay: _lastDay,
                         focusedDay: _focusedDay,
                         currentDay: DateTime.now(),
                         calendarFormat: CalendarFormat.month,
@@ -762,7 +799,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                         onPageChanged: (focusedDay) {
                           setState(() {
-                            _focusedDay = focusedDay;
+                            _focusedDay = _clampDate(focusedDay);
                           });
                         },
                         calendarBuilders: CalendarBuilders(
@@ -804,7 +841,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
                           setState(() {
                             _selectedDay = selectedDay;
-                            _focusedDay = focusedDay;
+                            _focusedDay = _clampDate(focusedDay);
                           });
 
                           final saved = await _logEntryBottomSheet(selectedDay);

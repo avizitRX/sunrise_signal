@@ -368,7 +368,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         'Reported Stress Distribution',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 50),
                       _buildStressBarChart(isDark, _data.stressMap),
                     ],
                   ),
