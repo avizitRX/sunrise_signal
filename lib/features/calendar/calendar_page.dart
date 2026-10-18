@@ -501,6 +501,16 @@ class _CalendarPageState extends State<CalendarPage> {
                               value: 'High',
                               label: Text('High', style: TextStyle(fontWeight: FontWeight.w600))),
                         ],
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return Theme.of(context).colorScheme.primary;
+                            }
+                            return isDark
+                                ? const Color.fromARGB(255, 28, 36, 51)
+                                : const Color(0xFFF1F5F9);
+                          }),
+                        ),
                         selected: {stressLevel},
                         onSelectionChanged: (set) => setModalState(() => stressLevel = set.first),
                       ),
@@ -855,6 +865,183 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
 
+                // Selected Day Inspector Card
+                if (_selectedDay != null)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      key: ValueKey(
+                        'day_${_selectedDay!.toIso8601String()}_${selectedLog?.emoji}_${selectedLog?.sleepHours}_${selectedLog?.stressLevel}_${selectedLog?.sexualActivity}_${selectedLog?.exercise}_${selectedLog?.alcoholIntake}_${selectedLog?.caffeineIntake}',
+                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                DateFormat('EEEE, MMM d').format(_selectedDay!),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              InkWell(
+                                onTap: () => _logEntryBottomSheet(_selectedDay!),
+                                child: Text(
+                                  selectedLog != null ? 'Edit Log' : 'Add Log',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (selectedLog == null)
+                            Text(
+                              'No record logged for this day. Tap to add your morning status.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                              ),
+                            )
+                          else ...[
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: (selectedLog.emoji == '🍆'
+                                            ? theme.colorScheme.primary
+                                            : const Color(0xFF64748B))
+                                        .withValues(alpha: 0.14),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child:
+                                      Text(selectedLog.emoji, style: const TextStyle(fontSize: 24)),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        selectedLog.emoji == '🍆'
+                                            ? 'Morning Wood Present'
+                                            : 'No Morning Wood Reported',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          _buildMiniMetric(
+                                            icon: CupertinoIcons.moon_fill,
+                                            text:
+                                                '${selectedLog.sleepHours.toStringAsFixed(1)}h sleep',
+                                            isDark: isDark,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildMiniMetric(
+                                            icon: Icons.speed_rounded,
+                                            text: '${selectedLog.stressLevel ?? "Low"} stress',
+                                            isDark: isDark,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark ? const Color(0xFF263346) : const Color(0xFFF1F5F9),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'LIFESTYLE & HABITS (PAST 24H)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Builder(
+                              builder: (context) {
+                                final sexAct = selectedLog.sexualActivity ?? 'None';
+                                final hadSex = sexAct == 'Sex' || sexAct == 'Both';
+                                final didMasturbate = sexAct == 'Masturbation' || sexAct == 'Both';
+                                final didExercise = selectedLog.exercise == 'Yes';
+                                final hadAlcohol = selectedLog.alcoholIntake == 'Yes';
+                                final hadCaffeine = selectedLog.caffeineIntake == 'Yes';
+
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _buildHabitChip(
+                                      icon: CupertinoIcons.heart_fill,
+                                      label: 'Sex',
+                                      isActive: hadSex,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: CupertinoIcons.hand_raised_fill,
+                                      label: 'Masturbate',
+                                      isActive: didMasturbate,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.fitness_center_rounded,
+                                      label: 'Workout',
+                                      isActive: didExercise,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.local_bar_rounded,
+                                      label: 'Alcohol',
+                                      isActive: hadAlcohol,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.coffee_rounded,
+                                      label: 'Caffeine',
+                                      isActive: hadCaffeine,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
                 // Month Snapshot Card
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -941,93 +1128,79 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
 
-                // Selected Day Inspector Card
-                if (_selectedDay != null)
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Container(
-                      key: ValueKey('day_${_selectedDay!.toIso8601String()}_${selectedLog?.emoji}'),
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF161F2E) : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                DateFormat('EEEE, MMM d').format(_selectedDay!),
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                              ),
-                              InkWell(
-                                onTap: () => _logEntryBottomSheet(_selectedDay!),
-                                child: Text(
-                                  selectedLog != null ? 'Edit Log' : 'Add Log',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          if (selectedLog == null)
-                            Text(
-                              'No record logged for this day. Tap to add your morning status.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isDark ? Colors.white54 : Colors.black54,
-                              ),
-                            )
-                          else
-                            Row(
-                              children: [
-                                Text(selectedLog.emoji, style: const TextStyle(fontSize: 26)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        selectedLog.emoji == '🍆'
-                                            ? 'Morning Wood Present'
-                                            : 'No Morning Wood Reported',
-                                        style: const TextStyle(
-                                            fontSize: 13, fontWeight: FontWeight.w600),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '${selectedLog.sleepHours.toStringAsFixed(1)} hrs sleep • Stress: ${selectedLog.stressLevel ?? "Low"}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isDark ? Colors.white60 : Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-
                 const SizedBox(height: 16),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMiniMetric({
+    required IconData icon,
+    required String text,
+    required bool isDark,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 13,
+          color: isDark ? Colors.white60 : Colors.black54,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHabitChip({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive
+            ? activeColor.withValues(alpha: 0.12)
+            : (isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isActive ? activeColor.withValues(alpha: 0.3) : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: isActive ? activeColor : (isDark ? Colors.white30 : Colors.black26),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? activeColor : (isDark ? Colors.white38 : Colors.black38),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1133,7 +1306,7 @@ class _YesNoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? activeColor.withValues(alpha: 0.12)
-              : (isDark ? const Color(0xFF161F2E) : const Color(0xFFF1F5F9)),
+              : (isDark ? const Color.fromARGB(255, 28, 36, 51) : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? activeColor : Colors.transparent,
