@@ -1111,16 +1111,6 @@ class _CalendarPageState extends State<CalendarPage> {
                                 isDark,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildMonthStatPill(
-                                'Avg Sleep',
-                                '${monthAvgSleep.toStringAsFixed(1)}h',
-                                '😴',
-                                const Color(0xFF38BDF8),
-                                isDark,
-                              ),
-                            ),
                           ],
                         ),
                       ],
@@ -1230,7 +1220,7 @@ class _CalendarPageState extends State<CalendarPage> {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: isDark ? Colors.white60 : Colors.black54,
                 ),
