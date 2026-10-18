@@ -23,7 +23,6 @@ class ReminderService {
 
     // 2. Extract the String name to pass into tz.getLocation()
     tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
-    // Note: If `.name` isn't available on your object, try `timezoneInfo.identifier` or `timezoneInfo.toString()`
   }
 
   NotificationDetails notificationDetails() {
@@ -32,8 +31,8 @@ class ReminderService {
         'daily_reminder_channel',
         'Daily Reminder',
         channelDescription: 'Daily reminder notifications',
-        importance: Importance.low,
-        priority: Priority.low,
+        importance: Importance.max, // Changed to max for timely pop-ups
+        priority: Priority.high, // Changed to high for priority alerts
       ),
     );
   }
@@ -53,13 +52,19 @@ class ReminderService {
       minute,
     );
 
+    // If the time has already passed today, push it to tomorrow
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
     await _flutterLocalNotificationsPlugin.zonedSchedule(
       id: 0,
       title: 'Did you wake up with morning wood?',
       scheduledDate: scheduledDate,
       notificationDetails: notificationDetails(),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
+      // Use exact mode so it fires precisely on time
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time, // Repeats daily at this time
     );
 
     await _saveReminderState(true);

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sunrise_signal/features/calendar/calendar_page.dart';
 import 'package:sunrise_signal/features/lock/lock_screen.dart';
+import 'package:sunrise_signal/models/sleep_model.dart';
+import 'package:sunrise_signal/providers/log_provider.dart';
+import 'package:sunrise_signal/providers/providers/settings_provider.dart';
 import 'package:sunrise_signal/services/reminder_service.dart';
 import 'package:sunrise_signal/services/theme_service.dart';
-import 'models/sleep_model.dart';
-import 'services/auth_service.dart';
+import 'package:sunrise_signal/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,59 +23,30 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => SleepModel()),
         ChangeNotifierProvider(create: (_) => themeService),
+        ChangeNotifierProvider(create: (_) => LogProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: const MyApp(),
     ),
   );
 }
 
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  Future<bool> _shouldShowLockScreen() async {
-    final authService = AuthService();
-    final isPasscodeSet = await authService.isPasscodeSet();
-    final isBiometricEnabled = await authService.isBiometricEnabled();
-    return isPasscodeSet || isBiometricEnabled;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sunrise Signal',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          brightness: Brightness.dark,
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          backgroundColor: Colors.brown,
-          surfaceTintColor: Colors.brown,
-        ),
-      ),
-      themeMode: Provider.of<ThemeService>(context, listen: true).isDarkMode
-          ? ThemeMode.dark
-          : ThemeMode.light,
-      home: FutureBuilder<bool>(
-        future: _shouldShowLockScreen(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    final isDark = Provider.of<ThemeService>(context).isDarkMode;
 
-          if (snapshot.data == true) {
-            return const LockScreenPage();
-          } else {
-            return const CalendarPage();
-          }
-        },
-      ),
+    return MaterialApp(
+      navigatorKey: rootNavigatorKey,
+      title: 'Sunrise Signal',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      home: const LockScreenPage(),
     );
   }
 }

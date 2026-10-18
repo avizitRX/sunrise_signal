@@ -7,8 +7,9 @@ class AuthService {
     await _secureStorage.write(key: 'passcode', value: passcode);
   }
 
-  Future<String?> getPasscode() async {
-    return await _secureStorage.read(key: 'passcode');
+  Future<bool> verifyPasscode(String enteredPasscode) async {
+    final storedPasscode = await _secureStorage.read(key: 'passcode');
+    return storedPasscode != null && storedPasscode == enteredPasscode;
   }
 
   Future<void> removePasscode() async {

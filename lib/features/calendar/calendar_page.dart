@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sunrise_signal/features/analytics/analytics_page.dart';
-import 'package:sunrise_signal/features/settings/settings_page.dart';
+import 'package:sunrise_signal/providers/providers/settings_provider.dart';
+import 'package:sunrise_signal/services/prompt_service.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-import '../../models/log_model.dart';
-import '../../models/sleep_model.dart';
-import '../../services/secure_storage_service.dart';
+import '../../providers/log_provider.dart';
+import '../analytics/analytics_page.dart';
+import '../settings/settings_page.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -19,331 +19,592 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  final SecureStorageService _storageService = SecureStorageService();
-  Map<DateTime, LogModel> _logs = {};
-  final DateTime _focusedDay = DateTime.now();
-  final _formKey = GlobalKey<FormState>();
+  static final DateTime _firstDay = DateTime.utc(2023, 1, 1);
+  static final DateTime _lastDay = DateTime.utc(2080, 12, 31);
+
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
 
   @override
   void initState() {
     super.initState();
-    _loadLogs();
+    final now = DateTime.now();
+    _focusedDay = _clampDate(now);
+    _selectedDay = _normalizeDate(_focusedDay);
     _notificationInitialization();
   }
 
-  Future<void> _loadLogs() async {
-    final logs = await _storageService.loadLogs();
-    setState(() {
-      _logs = logs;
-    });
-  }
-
   Future<void> _notificationInitialization() async {
-    // Initialize the Flutter Local Notifications Plugin
-    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    AndroidInitializationSettings initializationSettingsAndroid =
-        const AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    final InitializationSettings initializationSettings = InitializationSettings(
+    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    const initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher_monochrome');
+    const initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
     );
-
     await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
   }
 
-  Future<void> _saveLog(
-    DateTime date, {
-    required String emoji,
-    required double sleep,
-    String? stress,
-    String? exercise,
-    String? alcoholIntake,
-    String? caffeineIntake,
-  }) async {
-    _logs[date] = LogModel(
-      emoji: emoji,
-      sleepHours: sleep,
-      stressLevel: stress,
-      exercise: exercise,
-      alcoholIntake: alcoholIntake,
-      caffeineIntake: caffeineIntake,
+  DateTime _normalizeDate(DateTime date) {
+    return DateTime.utc(date.year, date.month, date.day);
+  }
+
+  DateTime _clampDate(DateTime date) {
+    if (date.isBefore(_firstDay)) return _firstDay;
+    if (date.isAfter(_lastDay)) return _lastDay;
+    return date;
+  }
+
+  void _goToToday() {
+    final now = _clampDate(DateTime.now());
+    setState(() {
+      _focusedDay = now;
+      _selectedDay = _normalizeDate(now);
+    });
+  }
+
+  Future<void> _showMonthYearPicker() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    int tempYear = _focusedDay.year;
+    int tempMonth = _focusedDay.month;
+
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF161F2E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setPickerState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Month & Year',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _goToToday();
+                        },
+                        child: const Text('Go to Today'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Year Selector
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: tempYear > _firstDay.year
+                              ? () => setPickerState(() => tempYear--)
+                              : null,
+                        ),
+                        Text(
+                          '$tempYear',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: tempYear < _lastDay.year
+                              ? () => setPickerState(() => tempYear++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Month Grid
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: 12,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 1.8,
+                    ),
+                    itemBuilder: (context, index) {
+                      final monthIndex = index + 1;
+                      final isSelected = tempYear == _focusedDay.year && monthIndex == tempMonth;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          final targetDate = _clampDate(DateTime.utc(tempYear, monthIndex, 1));
+                          setState(() {
+                            _focusedDay = targetDate;
+                          });
+                          Navigator.pop(sheetContext);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : (isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            months[index],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected
+                                  ? theme.colorScheme.onPrimary
+                                  : (isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
-    await _storageService.saveLogs(_logs);
-    setState(() {});
   }
 
-  Future<void> _removeLog(DateTime date) async {
-    _logs.remove(date);
-    await _storageService.saveLogs(_logs);
-    setState(() {});
-  }
+  Widget _buildDayCell(
+    BuildContext context,
+    DateTime day,
+    LogProvider logProvider, {
+    required bool isSelected,
+    required bool isToday,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final normalized = _normalizeDate(day);
+    final log = logProvider.logs[normalized];
 
-  void _logEntryBottomSheet(DateTime date) {
-    String? stressLevel;
-    bool exercise = false;
-    bool alcoholIntake = false;
-    bool caffeineIntake = false;
+    Color? backgroundColor;
+    Color textColor = isDark ? Colors.white : Colors.black87;
+    BoxBorder? border;
 
-    // Check if there is already an entry for the selected date
-    final existingLog = _logs[date];
-    if (existingLog != null) {
-      stressLevel = existingLog.stressLevel;
-      exercise = existingLog.exercise == 'Yes';
-      alcoholIntake = existingLog.alcoholIntake == 'Yes';
-      caffeineIntake = existingLog.caffeineIntake == 'Yes';
+    if (log != null) {
+      if (log.emoji == '🍆') {
+        backgroundColor = theme.colorScheme.primary; // Red / Yes
+        textColor = Colors.white;
+      } else {
+        backgroundColor = const Color(0xFF64748B); // Grey / No
+        textColor = Colors.white;
+      }
     }
 
-    showModalBottomSheet(
+    if (isSelected) {
+      if (backgroundColor != null) {
+        border = Border.all(
+          color: isDark ? Colors.white : Colors.black,
+          width: 2,
+        );
+      } else {
+        border = Border.all(
+          color: theme.colorScheme.primary,
+          width: 1.5,
+        );
+      }
+    } else if (isToday && backgroundColor == null) {
+      textColor = theme.colorScheme.primary;
+    }
+
+    return Center(
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+          border: border,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '${day.day}',
+          style: TextStyle(
+            color: textColor,
+            fontWeight: isToday || isSelected || log != null ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool?> _logEntryBottomSheet(DateTime date) async {
+    final logProvider = Provider.of<LogProvider>(context, listen: false);
+    final existingLog = logProvider.getLogForDate(date);
+
+    double sleepHours = existingLog?.sleepHours ?? 7.0;
+    String selectedEmoji = existingLog?.emoji ?? '🍆';
+    String stressLevel = existingLog?.stressLevel ?? 'Low';
+
+    final currentSexActivity = existingLog?.sexualActivity ?? 'None';
+    bool hadSex = currentSexActivity == 'Sex' || currentSexActivity == 'Both';
+    bool didMasturbate = currentSexActivity == 'Masturbation' || currentSexActivity == 'Both';
+
+    bool exercise = existingLog?.exercise == 'Yes';
+    bool alcoholIntake = existingLog?.alcoholIntake == 'Yes';
+    bool caffeineIntake = existingLog?.caffeineIntake == 'Yes';
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF161F2E) : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
+          builder: (BuildContext context, StateSetter setModalState) {
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 20 * (1 - value)),
+                    child: child,
+                  ),
+                );
+              },
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        DateFormat('d MMMM yyyy').format(date.toLocal()),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white24 : Colors.black12,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'DID YOU WAKE UP WITH MORNING WOOD?',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white // for dark mode
-                              : Colors.redAccent, // for light mode
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Consumer<SleepModel>(
-                        builder: (context, sleepModel, child) {
-                          return Column(
-                            children: [
-                              const Text('Sleep (hours):'),
-                              Slider(
-                                min: 1,
-                                max: 12,
-                                divisions: 22,
-                                label: sleepModel.sleepHours.toStringAsFixed(1),
-                                value: sleepModel.sleepHours,
-                                onChanged: (double value) {
-                                  sleepModel.sleepHours = value;
-                                },
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: stressLevel,
-                        decoration: const InputDecoration(labelText: 'Stress Level'),
-                        items: ['Low', 'Medium', 'High']
-                            .map((level) => DropdownMenuItem(
-                                  value: level,
-                                  child: Text(level),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            stressLevel = value;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select a stress level' : null,
-                      ),
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                        title: const Text('Exercised Yesterday?'),
-                        value: exercise,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            exercise = value ?? false;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      CheckboxListTile(
-                        title: const Text('Alcohol Intake?'),
-                        value: alcoholIntake,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            alcoholIntake = value ?? false;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      CheckboxListTile(
-                        title: const Text('Caffeine Intake?'),
-                        value: caffeineIntake,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            caffeineIntake = value ?? false;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(height: 16),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          GestureDetector(
-                            onTap: () {
-                              final sleepModel = Provider.of<SleepModel>(context, listen: false);
-
-                              if (_formKey.currentState?.validate() ?? false) {
-                                _saveLog(
-                                  date,
-                                  emoji: '😔',
-                                  sleep: sleepModel.sleepHours,
-                                  stress: stressLevel,
-                                  exercise: exercise ? 'Yes' : 'No',
-                                  alcoholIntake: alcoholIntake ? 'Yes' : 'No',
-                                  caffeineIntake: caffeineIntake ? 'Yes' : 'No',
-                                );
-                                Navigator.pop(context);
-                              }
-                            },
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.red.shade50,
-                                  width: 2,
-                                ),
-                                borderRadius: BorderRadius.circular(100),
-                                color: Colors.red,
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '😔',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              DateFormat('EEEE, MMM d').format(date).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                letterSpacing: 0.8,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
                               ),
                             ),
                           ),
-                          Transform.translate(
-                            offset: const Offset(-20, 0),
-                            child: GestureDetector(
-                              onTap: () {
-                                final sleepModel = Provider.of<SleepModel>(context, listen: false);
-
-                                if (_formKey.currentState?.validate() ?? false) {
-                                  _saveLog(
-                                    date,
-                                    emoji: '🍆',
-                                    sleep: sleepModel.sleepHours,
-                                    stress: stressLevel,
-                                    exercise: exercise ? 'Yes' : 'No',
-                                    alcoholIntake: alcoholIntake ? 'Yes' : 'No',
-                                    caffeineIntake: caffeineIntake ? 'Yes' : 'No',
-                                  );
-                                  Navigator.pop(context);
-                                }
-                              },
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.red.shade50,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(100),
-                                  color: Colors.red,
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    '🍆',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
+                          if (existingLog != null)
+                            IconButton(
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              icon: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.trash,
+                                      color: theme.colorScheme.primary,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Delete',
+                                        style: TextStyle(color: theme.colorScheme.primary))
+                                  ],
                                 ),
                               ),
+                              onPressed: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text('Delete Log'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this log entry?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext, true),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: theme.colorScheme.primary,
+                                        ),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirmed == true && context.mounted) {
+                                  await logProvider.removeLog(date);
+                                  if (context.mounted) Navigator.pop(context);
+                                }
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Did you wake up with morning wood?',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(CupertinoIcons.clock_fill,
+                              size: 14, color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Log all inputs based on the past 24 hours',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white60 : Colors.black54,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      if (existingLog != null) ...[
-                        ElevatedButton.icon(
-                          icon: const Icon(
-                            CupertinoIcons.trash,
-                            color: Colors.white,
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _YesNoCard(
+                              title: 'YES',
+                              emoji: '🍆',
+                              isSelected: selectedEmoji == '🍆',
+                              activeColor: theme.colorScheme.primary,
+                              onTap: () => setModalState(() => selectedEmoji = '🍆'),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            backgroundColor: Colors.redAccent,
                           ),
-                          onPressed: () {
-                            // Confirm deletion of the log
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: const Text('Delete Log Entry?'),
-                                  content:
-                                      const Text('Are you sure you want to delete this entry?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        _removeLog(date);
-                                        Navigator.pop(context);
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
-                          label: const Text(
-                            'Delete Entry',
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _YesNoCard(
+                              title: 'NO',
+                              emoji: '😔',
+                              isSelected: selectedEmoji == '😔',
+                              activeColor: const Color(0xFF64748B),
+                              onTap: () => setModalState(() => selectedEmoji = '😔'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Sleep Duration',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          Text(
+                            '${sleepHours.toStringAsFixed(1)} hrs',
                             style: TextStyle(
-                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
                             ),
                           ),
+                        ],
+                      ),
+                      Slider(
+                        min: 1,
+                        max: 12,
+                        divisions: 22,
+                        value: sleepHours.clamp(1.0, 12.0),
+                        onChanged: (val) {
+                          setModalState(() => sleepHours = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Stress Level (Past 24h)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                              value: 'Low',
+                              label: Text('Low', style: TextStyle(fontWeight: FontWeight.w600))),
+                          ButtonSegment(
+                              value: 'Medium',
+                              label: Text('Medium', style: TextStyle(fontWeight: FontWeight.w600))),
+                          ButtonSegment(
+                              value: 'High',
+                              label: Text('High', style: TextStyle(fontWeight: FontWeight.w600))),
+                        ],
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return Theme.of(context).colorScheme.primary;
+                            }
+                            return isDark
+                                ? const Color.fromARGB(255, 28, 36, 51)
+                                : const Color(0xFFF1F5F9);
+                          }),
                         ),
-                      ],
+                        selected: {stressLevel},
+                        onSelectionChanged: (set) => setModalState(() => stressLevel = set.first),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Lifestyle Habits (Past 24h)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Sex',
+                              icon: CupertinoIcons.heart_fill,
+                              isSelected: hadSex,
+                              onTap: () => setModalState(() => hadSex = !hadSex),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Masturbate',
+                              icon: CupertinoIcons.hand_raised_fill,
+                              isSelected: didMasturbate,
+                              onTap: () => setModalState(() => didMasturbate = !didMasturbate),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Workout',
+                              icon: Icons.fitness_center_rounded,
+                              isSelected: exercise,
+                              onTap: () => setModalState(() => exercise = !exercise),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Alcohol',
+                              icon: Icons.local_bar_rounded,
+                              isSelected: alcoholIntake,
+                              onTap: () => setModalState(() => alcoholIntake = !alcoholIntake),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _HabitPill(
+                              label: 'Caffeine',
+                              icon: Icons.coffee_rounded,
+                              isSelected: caffeineIntake,
+                              onTap: () => setModalState(() => caffeineIntake = !caffeineIntake),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 26),
+                      FilledButton(
+                        onPressed: () async {
+                          String calculatedSexActivity;
+                          if (hadSex && didMasturbate) {
+                            calculatedSexActivity = 'Both';
+                          } else if (hadSex) {
+                            calculatedSexActivity = 'Sex';
+                          } else if (didMasturbate) {
+                            calculatedSexActivity = 'Masturbation';
+                          } else {
+                            calculatedSexActivity = 'None';
+                          }
+
+                          await logProvider.saveLog(
+                            date,
+                            emoji: selectedEmoji,
+                            sleep: sleepHours,
+                            stress: stressLevel,
+                            exercise: exercise ? 'Yes' : 'No',
+                            alcoholIntake: alcoholIntake ? 'Yes' : 'No',
+                            caffeineIntake: caffeineIntake ? 'Yes' : 'No',
+                            sexualActivity: calculatedSexActivity,
+                          );
+
+                          if (context.mounted) {
+                            Navigator.pop(context, true);
+
+                            PromptService.checkAndShowPrompt(
+                              logProvider.logs.length,
+                            );
+                          }
+                        },
+                        child: const Text('Save Record'),
+                      ),
                     ],
                   ),
                 ),
@@ -355,112 +616,785 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  void _showFutureDateError() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Invalid Date'),
-          content: const Text('You cannot select a future date.'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+
+    // Guard previous and next buttons against crossing _firstDay and _lastDay
+    final canGoPrev = _focusedDay.year > _firstDay.year ||
+        (_focusedDay.year == _firstDay.year && _focusedDay.month > _firstDay.month);
+
+    final canGoNext = _focusedDay.year < _lastDay.year ||
+        (_focusedDay.year == _lastDay.year && _focusedDay.month < _lastDay.month);
+
+    return Consumer<LogProvider>(
+      builder: (context, logProvider, _) {
+        final logs = logProvider.logs;
+
+        final monthLogs = logs.entries
+            .where((e) => e.key.year == _focusedDay.year && e.key.month == _focusedDay.month)
+            .map((e) => e.value)
+            .toList();
+
+        final monthYes = monthLogs.where((l) => l.emoji == '🍆').length;
+        final monthNo = monthLogs.where((l) => l.emoji == '😔').length;
+        final monthTotal = monthYes + monthNo;
+        final monthRate = monthTotal == 0 ? 0.0 : (monthYes / monthTotal);
+        final monthAvgSleep = monthLogs.isEmpty
+            ? 0.0
+            : (monthLogs.fold<double>(0, (sum, l) => sum + l.sleepHours) / monthLogs.length);
+
+        final selectedLog = _selectedDay != null ? logProvider.getLogForDate(_selectedDay!) : null;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Sunrise Signal'),
+            actions: [
+              IconButton(
+                icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
+                onPressed: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const AnalyticsPage())),
+              ),
+              IconButton(
+                icon: const Icon(CupertinoIcons.gear_alt_fill),
+                onPressed: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const SettingsPage())),
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Calendar Container
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Interactive Calendar Header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+                        child: Row(
+                          children: [
+                            // Month & Year Picker Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: _showMonthYearPicker,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('MMMM yyyy').format(_focusedDay),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+
+                            // "Today" Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: _goToToday,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.calendar_today,
+                                      size: 13,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Today',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Prev Month Chevron with Guard
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: canGoPrev
+                                  ? () {
+                                      setState(() {
+                                        final target = DateTime.utc(
+                                          _focusedDay.year,
+                                          _focusedDay.month - 1,
+                                          1,
+                                        );
+                                        _focusedDay = _clampDate(target);
+                                      });
+                                    }
+                                  : null,
+                            ),
+
+                            // Next Month Chevron with Guard
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: canGoNext
+                                  ? () {
+                                      setState(() {
+                                        final target = DateTime.utc(
+                                          _focusedDay.year,
+                                          _focusedDay.month + 1,
+                                          1,
+                                        );
+                                        _focusedDay = _clampDate(target);
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      TableCalendar(
+                        headerVisible: false,
+                        firstDay: _firstDay,
+                        lastDay: _lastDay,
+                        focusedDay: _focusedDay,
+                        currentDay: DateTime.now(),
+                        calendarFormat: CalendarFormat.month,
+                        startingDayOfWeek: settingsProvider.startingDayOfWeek,
+                        weekendDays: const [],
+                        rowHeight: MediaQuery.of(context).size.height * 0.07,
+                        availableGestures: AvailableGestures.horizontalSwipe,
+                        calendarStyle: const CalendarStyle(
+                          outsideDaysVisible: false,
+                        ),
+                        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                        onPageChanged: (focusedDay) {
+                          setState(() {
+                            _focusedDay = _clampDate(focusedDay);
+                          });
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          defaultBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: false,
+                            isToday: false,
+                          ),
+                          todayBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: false,
+                            isToday: true,
+                          ),
+                          selectedBuilder: (context, day, focusedDay) => _buildDayCell(
+                            context,
+                            day,
+                            logProvider,
+                            isSelected: true,
+                            isToday: isSameDay(day, DateTime.now()),
+                          ),
+                        ),
+                        onDaySelected: (selectedDay, focusedDay) async {
+                          final normalizedSelectedDay = _normalizeDate(selectedDay);
+                          final normalizedToday = _normalizeDate(DateTime.now());
+
+                          if (normalizedSelectedDay.isAfter(normalizedToday)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                content: Text('Cannot log entries for future dates.'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setState(() {
+                            _selectedDay = selectedDay;
+                            _focusedDay = _clampDate(focusedDay);
+                          });
+
+                          final saved = await _logEntryBottomSheet(selectedDay);
+
+                          if (saved == true) {
+                            PromptService.checkAndShowPrompt(logProvider.logs.length);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Selected Day Inspector Card
+                if (_selectedDay != null)
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      key: ValueKey(
+                        'day_${_selectedDay!.toIso8601String()}_${selectedLog?.emoji}_${selectedLog?.sleepHours}_${selectedLog?.stressLevel}_${selectedLog?.sexualActivity}_${selectedLog?.exercise}_${selectedLog?.alcoholIntake}_${selectedLog?.caffeineIntake}',
+                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                DateFormat('EEEE, MMM d').format(_selectedDay!),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              InkWell(
+                                onTap: () => _logEntryBottomSheet(_selectedDay!),
+                                child: Text(
+                                  selectedLog != null ? 'Edit Log' : 'Add Log',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (selectedLog == null)
+                            Text(
+                              'No record logged for this day. Tap to add your morning status.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white54 : Colors.black54,
+                              ),
+                            )
+                          else ...[
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: (selectedLog.emoji == '🍆'
+                                            ? theme.colorScheme.primary
+                                            : const Color(0xFF64748B))
+                                        .withValues(alpha: 0.14),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child:
+                                      Text(selectedLog.emoji, style: const TextStyle(fontSize: 24)),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        selectedLog.emoji == '🍆'
+                                            ? 'Morning Wood Present'
+                                            : 'No Morning Wood Reported',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          _buildMiniMetric(
+                                            icon: CupertinoIcons.moon_fill,
+                                            text:
+                                                '${selectedLog.sleepHours.toStringAsFixed(1)}h sleep',
+                                            isDark: isDark,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _buildMiniMetric(
+                                            icon: Icons.speed_rounded,
+                                            text: '${selectedLog.stressLevel ?? "Low"} stress',
+                                            isDark: isDark,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: isDark ? const Color(0xFF263346) : const Color(0xFFF1F5F9),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'LIFESTYLE & HABITS (PAST 24H)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Builder(
+                              builder: (context) {
+                                final sexAct = selectedLog.sexualActivity ?? 'None';
+                                final hadSex = sexAct == 'Sex' || sexAct == 'Both';
+                                final didMasturbate = sexAct == 'Masturbation' || sexAct == 'Both';
+                                final didExercise = selectedLog.exercise == 'Yes';
+                                final hadAlcohol = selectedLog.alcoholIntake == 'Yes';
+                                final hadCaffeine = selectedLog.caffeineIntake == 'Yes';
+
+                                return Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _buildHabitChip(
+                                      icon: CupertinoIcons.heart_fill,
+                                      label: 'Sex',
+                                      isActive: hadSex,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: CupertinoIcons.hand_raised_fill,
+                                      label: 'Masturbate',
+                                      isActive: didMasturbate,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.fitness_center_rounded,
+                                      label: 'Workout',
+                                      isActive: didExercise,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.local_bar_rounded,
+                                      label: 'Alcohol',
+                                      isActive: hadAlcohol,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                    _buildHabitChip(
+                                      icon: Icons.coffee_rounded,
+                                      label: 'Caffeine',
+                                      isActive: hadCaffeine,
+                                      activeColor: theme.colorScheme.primary,
+                                      isDark: isDark,
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Month Snapshot Card
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    key: ValueKey('month_${_focusedDay.year}_${_focusedDay.month}_$monthTotal'),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF161F2E) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${DateFormat('MMMM yyyy').format(_focusedDay)} Snapshot',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              monthTotal == 0
+                                  ? '0% rate'
+                                  : '${(monthRate * 100).toStringAsFixed(0)}% rate',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: monthRate,
+                            minHeight: 6,
+                            backgroundColor:
+                                isDark ? const Color(0xFF263346) : const Color(0xFFE2E8F0),
+                            valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMonthStatPill(
+                                'Present',
+                                '$monthYes',
+                                '🍆',
+                                theme.colorScheme.primary,
+                                isDark,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildMonthStatPill(
+                                'Absent',
+                                '$monthNo',
+                                '😔',
+                                Colors.blueGrey,
+                                isDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sunrise Signal'),
-        actions: [
-          IconButton(
-            icon: const Icon(CupertinoIcons.chart_bar),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AnalyticsPage()),
-              );
-            },
+  Widget _buildMiniMetric({
+    required IconData icon,
+    required String text,
+    required bool isDark,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 13,
+          color: isDark ? Colors.white60 : Colors.black54,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.white70 : Colors.black87,
           ),
-          IconButton(
-            icon: const Icon(CupertinoIcons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHabitChip({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isActive
+            ? activeColor.withValues(alpha: 0.12)
+            : (isDark ? const Color(0xFF1F2B3E) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isActive ? activeColor.withValues(alpha: 0.3) : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: isActive ? activeColor : (isDark ? Colors.white30 : Colors.black26),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? activeColor : (isDark ? Colors.white38 : Colors.black38),
+            ),
           ),
         ],
       ),
-      body: TableCalendar(
-        calendarStyle: const CalendarStyle(
-          selectedDecoration: BoxDecoration(
-            color: Colors.red,
-          ),
-          outsideDaysVisible: false,
-        ),
-        focusedDay: _focusedDay,
-        rowHeight: MediaQuery.of(context).size.height * 0.12,
-        firstDay: DateTime(2000),
-        lastDay: DateTime(2100),
-        calendarFormat: CalendarFormat.month,
-        headerStyle: const HeaderStyle(
-          formatButtonVisible: false,
-          titleCentered: true,
-        ),
-        onDaySelected: (selectedDay, _) {
-          // Normalize the selectedDay and DateTime.now() to ignore time
-          final normalizedSelectedDay =
-              DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-          final normalizedToday =
-              DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    );
+  }
 
-          if (normalizedSelectedDay.isAfter(normalizedToday)) {
-            _showFutureDateError();
-          } else {
-            _logEntryBottomSheet(selectedDay);
-          }
-        },
-        eventLoader: (date) {
-          if (_logs.containsKey(date)) {
-            return [_logs[date]!.emoji];
-          }
-          return [];
-        },
-        calendarBuilders: CalendarBuilders(
-          markerBuilder: (context, date, events) {
-            if (events.isNotEmpty) {
-              return Positioned(
-                bottom: 1,
-                child: Container(
-                  margin: const EdgeInsets.only(
-                    top: 8.0,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: events
-                        .map(
-                          (event) => Text(
-                            event.toString(),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                        )
-                        .toList(),
-                  ),
+  Widget _buildMonthStatPill(String label, String value, String icon, Color color, bool isDark) {
+    return _BouncingButton(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+              ),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white60 : Colors.black54,
                 ),
-              );
-            }
-            return const SizedBox();
-          },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// REUSABLE COMPONENTS
+// ---------------------------------------------------------
+class _BouncingButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _BouncingButton({required this.child, required this.onTap});
+
+  @override
+  State<_BouncingButton> createState() => _BouncingButtonState();
+}
+
+class _BouncingButtonState extends State<_BouncingButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _YesNoCard extends StatelessWidget {
+  final String title;
+  final String emoji;
+  final bool isSelected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _YesNoCard({
+    required this.title,
+    required this.emoji,
+    required this.isSelected,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return _BouncingButton(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.12)
+              : (isDark ? const Color.fromARGB(255, 28, 36, 51) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.transparent,
+            width: 2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.25),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : [],
+        ),
+        child: Column(
+          children: [
+            AnimatedScale(
+              scale: isSelected ? 1.15 : 1.0,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutBack,
+              child: Text(emoji, style: const TextStyle(fontSize: 32)),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isSelected ? activeColor : (isDark ? Colors.white70 : Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HabitPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _HabitPill({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return _BouncingButton(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : (isDark ? const Color.fromARGB(255, 28, 36, 51) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedScale(
+              scale: isSelected ? 1.12 : 1.0,
+              duration: const Duration(milliseconds: 140),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : (isDark ? Colors.white38 : Colors.black38),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : (isDark ? Colors.white70 : Colors.black87),
+              ),
+            ),
+          ],
         ),
       ),
     );

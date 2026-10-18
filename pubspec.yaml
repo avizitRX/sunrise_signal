@@ -2,7 +2,7 @@ name: sunrise_signal
 description: "An app for tracking and understanding morning wood."
 publish_to: 'none'
 
-version: 2.0.0+200
+version: 3.0.0+300
 
 environment:
   sdk: ^3.5.4
@@ -23,6 +23,10 @@ dependencies:
   flutter_local_notifications: ^22.3.1
   timezone: ^0.11.1
   flutter_timezone: ^5.1.1
+  shared_preferences: ^2.5.6
+  permission_handler: ^13.0.2
+  url_launcher: ^6.3.3
+  share_plus: ^13.3.1
 
 dev_dependencies:
   flutter_test:
