@@ -2,7 +2,7 @@ name: sunrise_signal
 description: "An app for tracking and understanding morning wood."
 publish_to: 'none'
 
-version: 2.0.0+200
+version: 3.0.0+300
 
 environment:
   sdk: ^3.5.4

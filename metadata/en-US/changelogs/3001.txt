@@ -1,0 +1,9 @@
+- Redesigned the UI for a cleaner, more modern experience
+- Improved analytics for better insights
+- Enhanced security and protection
+- Added the option to set the first day of the week
+- Fixed delayed reminder notifications
+- Added a monthly snapshot below the calendar
+- Fixed an issue where the notification icon appeared as an empty circle
+- Added an option to support development through donations
+- Improved calendar navigation for a smoother experience
