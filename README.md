@@ -18,9 +18,9 @@
 -   **Open Source:** A fully open-source project to foster collaboration and community improvement.
 
 ## Screenshots
-| ![Interactive Calendar](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/1.png) | ![Detailed Analytics](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/2.png) |
+| ![Interactive Calendar]([https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/1.png](https://github.com/avizitRX/sunrise_signal/blob/047c73acfbf4f89fa46863bff7188bbb78e0e471/metadata/en-US/images/phoneScreenshots/1.png)) | ![Detailed Analytics](https://github.com/avizitRX/sunrise_signal/blob/047c73acfbf4f89fa46863bff7188bbb78e0e471/metadata/en-US/images/phoneScreenshots/2.png) |
 |--|--|
-| ![Suggestions to Improve](https://github.com/avizitRX/sunrise_signal/blob/4345783bac421bc54c62b7b905c99f901099b4dd/metadata/en-US/images/phoneScreenshots/3.png) | ![Settings Page](https://github.com/avizitRX/sunrise_signal/blob/172b3b0e34a718481cc5d2c98bc55b4eab877138/metadata/en-US/images/phoneScreenshots/4.png) |
+| ![Suggestions to Improve](https://github.com/avizitRX/sunrise_signal/blob/047c73acfbf4f89fa46863bff7188bbb78e0e471/metadata/en-US/images/phoneScreenshots/3.png) | ![Settings Page](https://github.com/avizitRX/sunrise_signal/blob/172b3b0e34a718481cc5d2c98bc55b4eab877138/metadata/en-US/images/phoneScreenshots/4.png) |
 
 ## 🛠️ Built With
 -   **Flutter:** Cross-platform framework for a consistent and smooth experience.
@@ -33,6 +33,12 @@ We welcome contributions from the community!
 -   **Fork the repository**: Click the "Fork" button on GitHub.
 -   **Create a new branch**: Add your changes to a new branch.
 -   **Submit a pull request**: Describe your changes and why they should be merged.
+
+## Support & Donations
+
+If you find this app helpful and want to support ongoing independent development, consider making a donation:
+
+[Donate via Crypto (Bitcoin & Monero)](/projects/mobile-development/sunrise-signal/donate)
 
 ## 🔒 Privacy
 Your data is yours alone. Morning Wood Tracker stores all information locally on your device, with no external sharing or uploads.
