@@ -38,7 +38,7 @@ We welcome contributions from the community!
 
 If you find this app helpful and want to support ongoing independent development, consider making a donation:
 
-[Donate via Crypto (Bitcoin & Monero)](/projects/mobile-development/sunrise-signal/donate)
+[Donate via Crypto (Bitcoin & Monero)](https://www.avizitrx.com/sunrise-signal/donate)
 
 ## 🔒 Privacy
 Your data is yours alone. Morning Wood Tracker stores all information locally on your device, with no external sharing or uploads.
