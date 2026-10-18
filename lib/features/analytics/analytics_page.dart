@@ -280,7 +280,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         return 'Past Year';
       case TimeFilter.custom:
         if (_customRange != null) {
-          return '${DateFormat('M/d').format(_customRange!.start)} - ${DateFormat('M/d').format(_customRange!.end)}';
+          return '${DateFormat('dd MMM yyyy').format(_customRange!.start)} - ${DateFormat('dd MMM yyyy').format(_customRange!.end)}';
         }
         return 'Custom Range';
     }
@@ -551,7 +551,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   : (isDark ? Colors.white60 : Colors.black54),
             ),
             label: Text(_selectedFilter == TimeFilter.custom && _customRange != null
-                ? '${DateFormat('M/d').format(_customRange!.start)}-${DateFormat('M/d').format(_customRange!.end)}'
+                ? '${DateFormat('dd MMM yyyy').format(_customRange!.start)} - ${DateFormat('dd MMM yyyy').format(_customRange!.end)}'
                 : 'Custom'),
             backgroundColor: _selectedFilter == TimeFilter.custom
                 ? theme.colorScheme.primary.withValues(alpha: 0.15)
