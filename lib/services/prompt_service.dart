@@ -11,8 +11,7 @@ import '../../main.dart'; // Ensure rootNavigatorKey is accessible
 
 class PromptService {
   static const String _keyLastPromptMonth = 'last_support_prompt_month';
-  static const String _donationUrl =
-      'https://avizitrx.com/projects/mobile-development/sunrise-signal/donate';
+  static const String _donationUrl = 'https://avizitrx.com/sunrise-signal/donate';
 
   static const String _shareSubject = 'Sunrise Signal - Men\'s Morning Health Tracker';
   static const String _shareMessage =

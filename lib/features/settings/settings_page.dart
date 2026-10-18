@@ -10,6 +10,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:sunrise_signal/providers/providers/settings_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/log_model.dart';
 import '../../providers/log_provider.dart';
@@ -449,6 +450,31 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: 'Import previous JSON logs',
                 trailing: const Icon(CupertinoIcons.chevron_forward, size: 16),
                 onTap: _importLogs,
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // 5. SUPPORT & DONATION
+          _buildSectionHeader('SUPPORT'),
+          _buildGroupContainer(
+            isDark: isDark,
+            children: [
+              _buildSettingTile(
+                icon: CupertinoIcons.heart_fill,
+                iconColor: const Color(0xFFEF4444),
+                title: 'Donate & Support',
+                subtitle: 'Contribute to keep the project growing',
+                trailing: const Icon(CupertinoIcons.chevron_forward, size: 16),
+                onTap: () async {
+                  final Uri url = Uri.parse('https://avizitrx.com/sunrise-signal/donate');
+                  try {
+                    await HapticFeedback.selectionClick();
+                    launchUrl(url, mode: LaunchMode.externalApplication);
+                  } catch (e) {
+                    _showToast('Could not open donation page');
+                  }
+                },
               ),
             ],
           ),
