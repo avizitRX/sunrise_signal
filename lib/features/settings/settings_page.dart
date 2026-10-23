@@ -528,7 +528,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               },
               child: Text(
-                'Sunrise Signal v3.0.0',
+                'Sunrise Signal v3.0.1',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).hintColor,
                     ),
